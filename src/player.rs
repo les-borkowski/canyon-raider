@@ -1,11 +1,11 @@
 // Player module - handles the player-controlled aircraft
-// The player is represented as a simple triangle that the user can control.
+// The player is represented as a pseudo-3D F-86/MiG-15 jet silhouette.
 
 use macroquad::prelude::*;
 
 /// Player struct represents the player's aircraft in the game.
 ///
-/// The player is drawn as a triangle pointing upward (north).
+/// The player is drawn as a layered jet silhouette pointing upward (north).
 /// Coordinates (x, y) mark the center of the player's hitbox.
 pub struct Player {
     /// Horizontal position on screen (0 = left edge, screen_width() = right edge)
@@ -41,7 +41,7 @@ impl Player {
         let cockpit  = Color::from_rgba(160, 200, 224, 255); // #A0C8E0 light blue
         let exhaust  = Color::from_rgba(224, 128,  32, 255); // #E08020 orange
 
-        // Wing shadows (drawn first, 2px below wings)
+        // Wing shadows (drawn first, shifted 2px down to imply depth)
         draw_triangle(
             Vec2::new(x - 3.0, y + 2.0),
             Vec2::new(x - 12.0, y + 10.0),
