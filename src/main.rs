@@ -63,7 +63,7 @@ impl GameState {
     /// This method uses the rects_overlap() collision testing function from the obstacles module.
     fn check_collisions(&mut self) {
         // Define the player's hitbox as a rectangle.
-        // The player is drawn at (x, y) as a triangle, so we offset to approximate the bounds.
+        // Player hitbox approximates the jet silhouette: nose at y-15, fuselage ±3px, wingtips at ±12px.
         let px = self.player.x - 10.0;
         let py = self.player.y - 15.0;
         let pw = 20.0_f32;

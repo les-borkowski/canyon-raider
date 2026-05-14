@@ -209,7 +209,7 @@ impl World {
             if let Some(ref depot) = slice.fuel_depot {
                 if !depot.collected {
                     // Front face of the platform (drawn first, behind top surface)
-                    draw_rectangle(depot.x, y + 15.0, 15.0, 5.0, pad_face);
+                    draw_rectangle(depot.x, y + SLICE_HEIGHT - 5.0, 15.0, 5.0, pad_face);
                     // Top surface
                     draw_rectangle(depot.x, y + 5.0, 15.0, 10.0, pad_top);
                     // Landing pad cross marker
