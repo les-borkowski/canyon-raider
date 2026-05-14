@@ -10,6 +10,8 @@ use player::Player;
 mod world;
 use world::{World, SLICE_HEIGHT, SCROLL_SPEED};
 
+mod obstacles;
+
 /// GamePhase represents the mutually exclusive states of the game.
 ///
 /// Rust enums are exhaustive — the compiler forces us to handle every variant.
@@ -34,6 +36,8 @@ pub enum GamePhase {
 pub struct GameState {
     pub player: Player,
     pub world: World,
+    pub rocks: Vec<obstacles::Rock>,
+    pub rock_timer: f32,
     pub phase: GamePhase,
     pub total_distance: f32,
 }
@@ -44,6 +48,8 @@ impl GameState {
         Self {
             player: Player::new(screen_width() / 2.0, screen_height() * 0.75),
             world: World::new(),
+            rocks: Vec::new(),
+            rock_timer: 2.0,
             phase: GamePhase::Playing,
             total_distance: 0.0,
         }
@@ -67,6 +73,21 @@ impl GameState {
                 // This distance eventually becomes the score.
                 // We use SCROLL_SPEED (defined in world.rs) for consistency.
                 self.total_distance += SCROLL_SPEED * get_frame_time();
+
+                // Scroll all rocks downward at the same rate as the canyon.
+                let scroll_px = SCROLL_SPEED * get_frame_time();
+                obstacles::update_rocks(&mut self.rocks, scroll_px);
+
+                // Extract the left and right wall positions from the top canyon slice.
+                // We use a block scope to drop the borrow before calling try_spawn_rock.
+                let (lw, rw) = {
+                    let top = &self.world.slices[0];
+                    (top.left_wall, top.right_wall)
+                };
+
+                // Try to spawn a new rock if the timer has elapsed.
+                // Rocks spawn randomly between 2.5-second intervals.
+                obstacles::try_spawn_rock(&mut self.rocks, &mut self.rock_timer, lw, rw, 2.5);
             }
             GamePhase::Dead { .. } => {
                 // Game is over. Check if the player pressed Space to restart.
@@ -92,15 +113,28 @@ impl GameState {
                 // Draw the scrolling canyon walls and fuel depots.
                 self.world.draw();
 
-                // Draw the player on top of the canyon.
+                // Draw all rocks on top of the canyon.
+                for rock in &self.rocks {
+                    rock.draw();
+                }
+
+                // Draw the player on top of everything.
                 self.player.draw();
             }
             GamePhase::Dead { score } => {
-                // Game over screen: display the world, player, and game over message.
+                // Game over screen: display the world, rocks, player, and message.
                 self.world.draw();
+
+                // Draw all rocks at their current positions.
+                for rock in &self.rocks {
+                    rock.draw();
+                }
 
                 // Draw the player where they collided.
                 self.player.draw();
+
+                // Render a semi-transparent dark overlay for visual emphasis.
+                draw_rectangle(0.0, 0.0, screen_width(), screen_height(), Color::new(0.0, 0.0, 0.0, 0.5));
 
                 // Format and display the game-over message.
                 let msg = format!("GAME OVER   Score: {}   [Space] to restart", score);
