@@ -16,6 +16,12 @@ pub const SLICE_HEIGHT: f32 = 20.0;
 // Speed at which the canyon scrolls downward, in pixels per second.
 pub const SCROLL_SPEED: f32 = 150.0;
 
+// Width of the cliff face strip that creates the pseudo-3D effect.
+const CLIFF_FACE_WIDTH: f32 = 8.0;
+
+// Height of the extrusion on the fuel depot platform.
+const EXTRUDE_HEIGHT: f32 = 6.0;
+
 /// FuelDepot represents a collectible fuel pickup in the canyon.
 ///
 /// The player can fly over a depot to refuel. The `collected` flag tracks whether
@@ -170,39 +176,48 @@ impl World {
 
     /// Draw the canyon walls and fuel depots.
     ///
-    /// The canyon is rendered as two rectangles (left and right walls) for each slice.
-    /// Fuel depots are drawn as small green rectangles.
+    /// The canyon is rendered with pseudo-3D cliff faces: a warm stone top surface,
+    /// a dark inner cliff face strip, and a 1px highlight lip on each wall.
+    /// Fuel depots are drawn as raised platforms with a cross marker.
     pub fn draw(&self) {
         let sw = screen_width();
 
-        // Iterate over all slices and draw them.
+        let stone_top  = Color::from_rgba(139, 115,  85, 255); // #8B7355 warm stone
+        let stone_face = Color::from_rgba( 92,  74,  50, 255); // #5C4A32 shadow
+        let stone_lip  = Color::from_rgba(184, 160, 128, 255); // #B8A080 highlight
+
+        let pad_top  = Color::from_rgba( 34, 204,  68, 255); // #22CC44
+        let pad_face = Color::from_rgba( 26,  74,  26, 255); // #1A4A1A
+
         for (i, slice) in self.slices.iter().enumerate() {
-            // Calculate the Y position of this slice on-screen.
-            //
-            // Formula: y = i * SLICE_HEIGHT + scroll_offset - SLICE_HEIGHT
-            //
-            // The `- SLICE_HEIGHT` ensures slice[0] starts just ABOVE the screen
-            // (at y = -SLICE_HEIGHT when scroll_offset = 0), so it scrolls INTO
-            // view from the top rather than appearing suddenly at y = 0.
-            //
-            // As scroll_offset increases, ALL slices move DOWN (y increases),
-            // exactly like rocks. When scroll_offset wraps at SLICE_HEIGHT, the
-            // rotation (push_front) shifts every other slice's index up by 1,
-            // which adds SLICE_HEIGHT to their y — perfectly cancelling the wrap.
-            // Result: no visual jump on rotation.
             let y = i as f32 * SLICE_HEIGHT + self.scroll_offset - SLICE_HEIGHT;
 
-            // Draw the left wall (from screen edge to left_wall).
-            draw_rectangle(0.0, y, slice.left_wall, SLICE_HEIGHT, DARKGRAY);
+            // --- Left wall ---
+            // Top surface
+            draw_rectangle(0.0, y, slice.left_wall, SLICE_HEIGHT, stone_top);
+            // Inner cliff face strip
+            draw_rectangle(slice.left_wall - CLIFF_FACE_WIDTH, y, CLIFF_FACE_WIDTH, SLICE_HEIGHT, stone_face);
+            // Highlight lip (1px tall, top of strip)
+            draw_rectangle(slice.left_wall - CLIFF_FACE_WIDTH, y, CLIFF_FACE_WIDTH, 1.0, stone_lip);
 
-            // Draw the right wall (from right_wall to screen edge).
-            draw_rectangle(slice.right_wall, y, sw - slice.right_wall, SLICE_HEIGHT, DARKGRAY);
+            // --- Right wall ---
+            // Top surface
+            draw_rectangle(slice.right_wall, y, sw - slice.right_wall, SLICE_HEIGHT, stone_top);
+            // Inner cliff face strip
+            draw_rectangle(slice.right_wall, y, CLIFF_FACE_WIDTH, SLICE_HEIGHT, stone_face);
+            // Highlight lip
+            draw_rectangle(slice.right_wall, y, CLIFF_FACE_WIDTH, 1.0, stone_lip);
 
-            // Draw the fuel depot if it exists and hasn't been collected.
+            // --- Fuel depot ---
             if let Some(ref depot) = slice.fuel_depot {
                 if !depot.collected {
-                    // Green 15x10 rectangle at the depot's position.
-                    draw_rectangle(depot.x, y + 5.0, 15.0, 10.0, GREEN);
+                    // Front face of the platform (drawn first, behind top surface)
+                    draw_rectangle(depot.x, y + 15.0, 15.0, EXTRUDE_HEIGHT, pad_face);
+                    // Top surface
+                    draw_rectangle(depot.x, y + 5.0, 15.0, 10.0, pad_top);
+                    // Landing pad cross marker
+                    draw_rectangle(depot.x + 6.5, y + 5.5, 2.0, 9.0, WHITE);  // vertical bar
+                    draw_rectangle(depot.x + 1.0, y + 9.0, 13.0, 2.0, WHITE); // horizontal bar
                 }
             }
         }
