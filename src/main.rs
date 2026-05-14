@@ -115,6 +115,35 @@ impl GameState {
         self.phase = GamePhase::Dead { score };
     }
 
+    /// Calculate the current minimum canyon width based on progress (difficulty scaling).
+    ///
+    /// Uses linear interpolation: at distance 0, the width is 300 pixels.
+    /// At distance 15000 pixels, the width tapers to 140 pixels.
+    /// This creates a smooth difficulty curve where the canyon gradually narrows.
+    fn canyon_width(&self) -> f32 {
+        // Normalize distance to a 0.0–1.0 progress value.
+        // At 15000 pixels, we clamp to 1.0 (max difficulty).
+        let t = (self.total_distance / 15_000.0).clamp(0.0, 1.0);
+
+        // Linear interpolation: start + t * (end - start).
+        // Starts at 300.0 pixels wide, ends at 140.0 pixels wide.
+        300.0 + t * (140.0 - 300.0)
+    }
+
+    /// Calculate the current rock spawn interval based on progress (difficulty scaling).
+    ///
+    /// Uses linear interpolation: at distance 0, rocks spawn every 2.5 seconds.
+    /// At distance 15000 pixels, rocks spawn every 0.7 seconds.
+    /// This creates a smooth difficulty curve where rocks become more frequent.
+    fn rock_interval(&self) -> f32 {
+        // Normalize distance to a 0.0–1.0 progress value.
+        let t = (self.total_distance / 15_000.0).clamp(0.0, 1.0);
+
+        // Linear interpolation: start + t * (end - start).
+        // Starts at 2.5 seconds between rocks, ends at 0.7 seconds.
+        2.5 + t * (0.7 - 2.5)
+    }
+
     /// Check if the player is overlapping with any fuel depot and collect it.
     ///
     /// This method iterates through world slices and checks for overlaps with fuel depots.
@@ -164,8 +193,8 @@ impl GameState {
                 self.player.update();
 
                 // Update the world: scroll the canyon and generate new slices.
-                // Pass 300.0 as the minimum canyon width for now.
-                self.world.update(300.0);
+                // Pass the dynamically calculated canyon width based on difficulty.
+                self.world.update(self.canyon_width());
 
                 // Advance the distance traveled. The player moves forward at a constant rate.
                 // This distance eventually becomes the score.
@@ -197,9 +226,14 @@ impl GameState {
                     (top.left_wall, top.right_wall)
                 };
 
+                // Extract the rock spawn interval based on current difficulty.
+                // We do this before try_spawn_rock to avoid borrow checker issues
+                // (try_spawn_rock borrows self.rocks and self.rock_timer mutably).
+                let interval = self.rock_interval();
+
                 // Try to spawn a new rock if the timer has elapsed.
-                // Rocks spawn randomly between 2.5-second intervals.
-                obstacles::try_spawn_rock(&mut self.rocks, &mut self.rock_timer, lw, rw, 2.5);
+                // Rocks spawn with intervals based on current difficulty.
+                obstacles::try_spawn_rock(&mut self.rocks, &mut self.rock_timer, lw, rw, interval);
 
                 // Check for collisions with canyon walls or rocks.
                 // If a collision is detected, this will transition to the Dead phase.

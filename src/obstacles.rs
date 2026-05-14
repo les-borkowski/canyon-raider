@@ -106,6 +106,7 @@ pub fn try_spawn_rock(
 ///
 /// # Returns
 /// `true` if the rectangles overlap, `false` otherwise
+#[allow(clippy::too_many_arguments)]
 pub fn rects_overlap(
     ax: f32, ay: f32, aw: f32, ah: f32,
     bx: f32, by: f32, bw: f32, bh: f32,
