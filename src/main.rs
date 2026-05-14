@@ -24,6 +24,10 @@ async fn main() {
             break; // Exit the game loop
         }
 
+        // Update player position based on keyboard input.
+        // This must happen before drawing so the player is drawn at the new position.
+        p.update();
+
         // clear_background() fills the entire screen with a single color.
         // BLACK is equivalent to Color::new(0.0, 0.0, 0.0, 1.0).
         clear_background(BLACK);

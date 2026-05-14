@@ -40,4 +40,45 @@ impl Player {
             SKYBLUE,
         );
     }
+
+    /// Update the player's position based on keyboard input.
+    ///
+    /// Movement is frame-rate independent: we multiply speed by delta-time (get_frame_time()).
+    /// This ensures the same distance is traveled regardless of frame rate.
+    ///
+    /// The player can move in all four cardinal directions via arrow keys or WASD.
+    /// After movement, position is clamped to stay within screen bounds, preventing the
+    /// player from going off-screen.
+    pub fn update(&mut self) {
+        // Movement speed in pixels per second. Higher = faster movement.
+        const SPEED: f32 = 200.0;
+
+        // Get the time elapsed since the last frame, in seconds.
+        // This is essential for frame-rate independent movement.
+        let dt = get_frame_time();
+
+        // Handle horizontal movement (left/right).
+        // Both arrow keys and WASD are supported for accessibility.
+        // is_key_down() returns true while a key is held down (unlike is_key_pressed()).
+        if is_key_down(KeyCode::Left) || is_key_down(KeyCode::A) {
+            self.x -= SPEED * dt; // Move left (decreasing x)
+        }
+        if is_key_down(KeyCode::Right) || is_key_down(KeyCode::D) {
+            self.x += SPEED * dt; // Move right (increasing x)
+        }
+
+        // Handle vertical movement (up/down).
+        if is_key_down(KeyCode::Up) || is_key_down(KeyCode::W) {
+            self.y -= SPEED * dt; // Move up (decreasing y, since y increases downward)
+        }
+        if is_key_down(KeyCode::Down) || is_key_down(KeyCode::S) {
+            self.y += SPEED * dt; // Move down (increasing y)
+        }
+
+        // Clamp position to screen boundaries to prevent the player from going off-screen.
+        // The margins (10.0, 15.0, 10.0) account for the player's triangle size.
+        // Without clamping, the player could partially disappear off the edges.
+        self.x = self.x.clamp(10.0, screen_width() - 10.0);
+        self.y = self.y.clamp(15.0, screen_height() - 10.0);
+    }
 }
