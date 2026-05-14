@@ -55,6 +55,64 @@ impl GameState {
         }
     }
 
+    /// Check for collisions between the player and canyon walls or rocks.
+    ///
+    /// If a collision is detected, the player dies and transitions to the Dead phase.
+    /// This method uses the rects_overlap() collision testing function from the obstacles module.
+    fn check_collisions(&mut self) {
+        // Define the player's hitbox as a rectangle.
+        // The player is drawn at (x, y) as a triangle, so we offset to approximate the bounds.
+        let px = self.player.x - 10.0;
+        let py = self.player.y - 15.0;
+        let pw = 20.0_f32;
+        let ph = 25.0_f32;
+        let sw = screen_width();
+        let scroll = self.world.scroll_offset;
+
+        // Track whether a collision occurred.
+        let mut hit = false;
+
+        // Check collision with canyon walls.
+        // We iterate through all slices and check if the player overlaps with any wall.
+        'walls: for (i, slice) in self.world.slices.iter().enumerate() {
+            let sy = i as f32 * SLICE_HEIGHT - scroll;
+
+            // Check left wall collision: is the player inside the left wall?
+            if obstacles::rects_overlap(px, py, pw, ph, 0.0, sy, slice.left_wall, SLICE_HEIGHT) {
+                hit = true;
+                break 'walls;
+            }
+
+            // Check right wall collision: is the player inside the right wall?
+            if obstacles::rects_overlap(px, py, pw, ph, slice.right_wall, sy, sw - slice.right_wall, SLICE_HEIGHT) {
+                hit = true;
+                break 'walls;
+            }
+        }
+
+        // If no wall collision, check rock collisions.
+        if !hit {
+            for rock in &self.rocks {
+                if obstacles::rects_overlap(px, py, pw, ph, rock.x, rock.y, rock.width, rock.height) {
+                    hit = true;
+                    break;
+                }
+            }
+        }
+
+        // If any collision was detected, trigger game over.
+        if hit {
+            self.die();
+        }
+    }
+
+    /// Transition the game to the Dead phase, recording the final score.
+    fn die(&mut self) {
+        // Convert distance (pixels) to score (divide by 10 for a reasonable scale).
+        let score = (self.total_distance / 10.0) as u32;
+        self.phase = GamePhase::Dead { score };
+    }
+
     /// Update game state based on the current phase.
     ///
     /// match is exhaustive — if we add a new GamePhase variant, the compiler
@@ -88,6 +146,10 @@ impl GameState {
                 // Try to spawn a new rock if the timer has elapsed.
                 // Rocks spawn randomly between 2.5-second intervals.
                 obstacles::try_spawn_rock(&mut self.rocks, &mut self.rock_timer, lw, rw, 2.5);
+
+                // Check for collisions with canyon walls or rocks.
+                // If a collision is detected, this will transition to the Dead phase.
+                self.check_collisions();
             }
             GamePhase::Dead { .. } => {
                 // Game is over. Check if the player pressed Space to restart.
