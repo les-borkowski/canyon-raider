@@ -12,6 +12,9 @@ pub struct Player {
     pub x: f32,
     /// Vertical position on screen (0 = top edge, screen_height() = bottom edge)
     pub y: f32,
+    /// Fuel level (0.0 = empty, 100.0 = full).
+    /// The player must collect fuel depots to refuel, or they'll run out and crash.
+    pub fuel: f32,
 }
 
 impl Player {
@@ -21,7 +24,7 @@ impl Player {
     /// * `x` - Initial horizontal position
     /// * `y` - Initial vertical position
     pub fn new(x: f32, y: f32) -> Self {
-        Self { x, y }
+        Self { x, y, fuel: 100.0 }
     }
 
     /// Draw the player as a cyan triangle pointing upward.

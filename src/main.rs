@@ -113,6 +113,44 @@ impl GameState {
         self.phase = GamePhase::Dead { score };
     }
 
+    /// Check if the player is overlapping with any fuel depot and collect it.
+    ///
+    /// This method iterates through world slices and checks for overlaps with fuel depots.
+    /// If the player touches an uncollected depot, the depot is marked as collected and
+    /// the player's fuel is restored to full.
+    fn check_fuel_pickups(&mut self) {
+        // Define the player's hitbox for collision testing.
+        let px = self.player.x - 10.0;
+        let py = self.player.y - 15.0;
+        let scroll = self.world.scroll_offset;
+
+        // Track if the player collected fuel this frame.
+        // We use a flag to avoid modifying player while iterating world.
+        let mut refueled = false;
+
+        // Iterate through all canyon slices to check for fuel depot collisions.
+        for (i, slice) in self.world.slices.iter_mut().enumerate() {
+            let sy = i as f32 * SLICE_HEIGHT - scroll;
+
+            // Check if the slice has a fuel depot and if the player is overlapping it.
+            if let Some(ref mut depot) = slice.fuel_depot {
+                // Only check uncollected depots.
+                if !depot.collected
+                    && obstacles::rects_overlap(px, py, 20.0, 25.0, depot.x, sy + 5.0, 15.0, 10.0)
+                {
+                    // Mark the depot as collected so it won't be collected again.
+                    depot.collected = true;
+                    refueled = true;
+                }
+            }
+        }
+
+        // If fuel was collected, restore the player's fuel to full.
+        if refueled {
+            self.player.fuel = 100.0;
+        }
+    }
+
     /// Update game state based on the current phase.
     ///
     /// match is exhaustive — if we add a new GamePhase variant, the compiler
@@ -131,6 +169,20 @@ impl GameState {
                 // This distance eventually becomes the score.
                 // We use SCROLL_SPEED (defined in world.rs) for consistency.
                 self.total_distance += SCROLL_SPEED * get_frame_time();
+
+                // Drain fuel continuously at a constant rate.
+                // 8.0 fuel units per second = ~12 seconds to empty a full tank.
+                const FUEL_DRAIN: f32 = 8.0;
+                self.player.fuel = (self.player.fuel - FUEL_DRAIN * get_frame_time()).max(0.0);
+
+                // Check if fuel has run out. If so, end the game immediately.
+                if self.player.fuel <= 0.0 {
+                    self.die();
+                    return;
+                }
+
+                // Check if the player is overlapping any fuel depot and refuel if so.
+                self.check_fuel_pickups();
 
                 // Scroll all rocks downward at the same rate as the canyon.
                 let scroll_px = SCROLL_SPEED * get_frame_time();
