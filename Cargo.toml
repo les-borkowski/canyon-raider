@@ -1,0 +1,7 @@
+[package]
+name = "canyon_raider"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+macroquad = "0.4"
