@@ -27,21 +27,64 @@ impl Player {
         Self { x, y, fuel: 100.0 }
     }
 
-    /// Draw the player as a cyan triangle pointing upward.
+    /// Draw the player as a pseudo-3D F-86/MiG-15 style fighter silhouette.
     ///
-    /// The triangle vertices are positioned relative to the center point (x, y):
-    /// - nose: points upward (toward negative y, since y increases downward)
-    /// - left wing: 10 pixels left, 10 pixels down from center
-    /// - right wing: 10 pixels right, 10 pixels down from center
-    ///
-    /// This creates a simple yet recognizable aircraft silhouette.
+    /// The design features swept wings, a tapered fuselage, and cockpit details
+    /// to create an authentic Cold War jet aesthetic. Wing shadows add depth.
     pub fn draw(&self) {
+        let x = self.x;
+        let y = self.y;
+
+        let fuselage = Color::from_rgba( 58,  58,  74, 255); // #3A3A4A dark blue-gray
+        let wing_col = Color::from_rgba( 74,  74,  90, 255); // #4A4A5A lighter gray
+        let wing_shd = Color::from_rgba( 26,  26,  34, 255); // #1A1A22 near-black
+        let cockpit  = Color::from_rgba(160, 200, 224, 255); // #A0C8E0 light blue
+        let exhaust  = Color::from_rgba(224, 128,  32, 255); // #E08020 orange
+
+        // Wing shadows (drawn first, 2px below wings)
         draw_triangle(
-            Vec2::new(self.x, self.y - 15.0),        // nose (points up)
-            Vec2::new(self.x - 10.0, self.y + 10.0), // left wing
-            Vec2::new(self.x + 10.0, self.y + 10.0), // right wing
-            SKYBLUE,
+            Vec2::new(x - 3.0, y + 2.0),
+            Vec2::new(x - 12.0, y + 10.0),
+            Vec2::new(x - 3.0, y + 10.0),
+            wing_shd,
         );
+        draw_triangle(
+            Vec2::new(x + 3.0, y + 2.0),
+            Vec2::new(x + 12.0, y + 10.0),
+            Vec2::new(x + 3.0, y + 10.0),
+            wing_shd,
+        );
+
+        // Swept wings
+        draw_triangle(
+            Vec2::new(x - 3.0, y + 0.0),
+            Vec2::new(x - 12.0, y + 8.0),
+            Vec2::new(x - 3.0, y + 8.0),
+            wing_col,
+        );
+        draw_triangle(
+            Vec2::new(x + 3.0, y + 0.0),
+            Vec2::new(x + 12.0, y + 8.0),
+            Vec2::new(x + 3.0, y + 8.0),
+            wing_col,
+        );
+
+        // Fuselage body
+        draw_rectangle(x - 3.0, y - 13.0, 6.0, 23.0, fuselage);
+
+        // Nose cone
+        draw_triangle(
+            Vec2::new(x,        y - 15.0),
+            Vec2::new(x - 3.0, y - 10.0),
+            Vec2::new(x + 3.0, y - 10.0),
+            fuselage,
+        );
+
+        // Cockpit
+        draw_circle(x, y - 7.0, 3.0, cockpit);
+
+        // Engine exhaust glow
+        draw_rectangle(x - 2.0, y + 9.0, 4.0, 3.0, exhaust);
     }
 
     /// Update the player's position based on keyboard input.
