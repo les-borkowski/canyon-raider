@@ -1,7 +1,7 @@
 // Obstacles module - handles rock generation, scrolling, and collision detection
 //
 // Rocks are randomly spawned obstacles that the player must avoid.
-// They scroll downward with the canyon, and are drawn as brown rectangles.
+// They scroll downward with the canyon, and are drawn as pseudo-3D rounded boulders.
 
 use macroquad::prelude::*;
 use macroquad::rand::gen_range;
@@ -10,7 +10,7 @@ const EXTRUDE_HEIGHT: f32 = 6.0;
 
 /// Rock represents a single obstacle in the canyon.
 ///
-/// Rocks are drawn as brown rectangles and exist in screen-space coordinates.
+/// Rocks are drawn as pseudo-3D rounded boulders and exist in screen-space coordinates.
 /// Each frame, they move downward along with the scrolling canyon.
 pub struct Rock {
     /// Horizontal position of the rock's top-left corner
