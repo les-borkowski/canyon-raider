@@ -6,6 +6,8 @@
 use macroquad::prelude::*;
 use macroquad::rand::gen_range;
 
+const EXTRUDE_HEIGHT: f32 = 6.0;
+
 /// Rock represents a single obstacle in the canyon.
 ///
 /// Rocks are drawn as brown rectangles and exist in screen-space coordinates.
@@ -22,11 +24,30 @@ pub struct Rock {
 }
 
 impl Rock {
-    /// Draw the rock as a brown-orange rectangle.
+    /// Draw the rock as a pseudo-3D rounded boulder with shadow and highlight.
     pub fn draw(&self) {
-        // Color uses RGBA: (red, green, blue, alpha)
-        // (180, 100, 40) gives a brownish tone suitable for rocks.
-        draw_rectangle(self.x, self.y, self.width, self.height, Color::from_rgba(180, 100, 40, 255));
+        let cx = self.x + self.width / 2.0;
+        let cy = self.y + self.height / 2.0;
+        let radius = (self.width + self.height) / 4.0;
+
+        // Shadow (drawn first, offset down-right)
+        draw_poly(
+            cx + EXTRUDE_HEIGHT, cy + EXTRUDE_HEIGHT,
+            8, radius, 0.0,
+            Color::from_rgba(26, 16, 8, 255),   // #1A1008 near-black
+        );
+        // Rock body
+        draw_poly(
+            cx, cy,
+            8, radius, 0.0,
+            Color::from_rgba(160, 98, 42, 255),  // #A0622A warm brown
+        );
+        // Lit highlight (inset, shifted up-left)
+        draw_poly(
+            cx - 2.0, cy - 2.0,
+            8, (radius - 3.0).max(1.0), 0.0,
+            Color::from_rgba(200, 136, 90, 255), // #C8885A light tan
+        );
     }
 }
 
