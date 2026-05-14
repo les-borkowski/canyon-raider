@@ -44,17 +44,22 @@ pub struct CanyonSlice {
 /// World manages the scrolling canyon.
 ///
 /// The canyon is represented as a VecDeque of slices, creating a sliding window effect.
-/// Each frame, we advance scroll_offset. When it reaches SLICE_HEIGHT, we:
+/// Each frame, we advance scroll_offset. When it exceeds SLICE_HEIGHT, we:
 /// 1. Remove the bottom slice (pop_back) — it's scrolled off-screen
 /// 2. Add a new slice at the top (push_front) — fresh terrain ahead
 ///
-/// This approach is memory-efficient and allows infinite scrolling.
+/// scroll_offset grows continuously without resetting, ensuring smooth Y calculations
+/// that never have discontinuities from the pop/push operations.
 pub struct World {
     /// Double-ended queue of canyon slices. slices[0] is at the top, slices[last] is at the bottom.
     pub slices: VecDeque<CanyonSlice>,
-    /// Sub-slice scroll offset (0.0 to SLICE_HEIGHT).
-    /// When this reaches SLICE_HEIGHT, we advance to the next slice.
+    /// Continuous scroll offset that grows indefinitely (not wrapped).
+    /// This ensures smooth Y position calculations without jumps when slices are rotated.
     pub scroll_offset: f32,
+    /// Cumulative offset applied to all Y calculations due to popped slices.
+    /// Each time we pop a slice, we add SLICE_HEIGHT to this.
+    /// This ensures that Y calculations remain continuous even as the deque rotates.
+    base_y_offset: f32,
     /// Memory of the previous left wall position for smooth generation
     /// (The canyon shouldn't jump dramatically; it changes gradually.)
     last_left: f32,
@@ -80,6 +85,7 @@ impl World {
         let mut world = Self {
             slices: VecDeque::new(),
             scroll_offset: 0.0,
+            base_y_offset: 0.0,
             // Start with the canyon at a reasonable width: 70% of screen width.
             // The canyon will narrow toward 30% as difficulty increases.
             last_left: sw * 0.15,
@@ -148,12 +154,20 @@ impl World {
     /// * `min_canyon_width` - The minimum width the canyon must maintain
     pub fn update(&mut self, min_canyon_width: f32) {
         // Advance the scroll offset by SCROLL_SPEED pixels per second.
+        // NOTE: scroll_offset grows continuously and never resets.
+        // This ensures smooth Y calculations without discontinuities.
         self.scroll_offset += SCROLL_SPEED * get_frame_time();
 
-        // Check if we've scrolled a full slice height.
+        // Check if we've scrolled enough to remove an off-screen slice.
+        // We pop/push slices when scroll_offset exceeds a threshold we've set,
+        // but we don't reset scroll_offset. Instead, we track the cumulative offset.
         while self.scroll_offset >= SLICE_HEIGHT {
-            // We've scrolled past one slice. Adjust the offset and advance slices.
+            // We've scrolled past one slice. Keep scrolling, but track the pop.
             self.scroll_offset -= SLICE_HEIGHT;
+
+            // Increment base_y_offset to account for the popped slice.
+            // This shifts all future Y calculations down, compensating for the removed slice.
+            self.base_y_offset += SLICE_HEIGHT;
 
             // Remove the bottom slice (it's scrolled off-screen).
             self.slices.pop_back();
@@ -174,9 +188,11 @@ impl World {
         // Iterate over all slices and draw them.
         for (i, slice) in self.slices.iter().enumerate() {
             // Calculate the Y position of this slice on-screen.
-            // i * SLICE_HEIGHT is the base position.
-            // We subtract scroll_offset to animate the scrolling.
-            let y = i as f32 * SLICE_HEIGHT - self.scroll_offset;
+            // base_y_offset accounts for slices that have been popped from the deque.
+            // i * SLICE_HEIGHT is the position within the current deque.
+            // We subtract scroll_offset to animate the smooth scrolling.
+            // This formula ensures continuous motion without jumps when slices rotate.
+            let y = self.base_y_offset + i as f32 * SLICE_HEIGHT - self.scroll_offset;
 
             // Draw the left wall (from screen edge to left_wall).
             draw_rectangle(0.0, y, slice.left_wall, SLICE_HEIGHT, DARKGRAY);
