@@ -12,6 +12,8 @@ use world::{World, SLICE_HEIGHT, SCROLL_SPEED};
 
 mod obstacles;
 
+mod hud;
+
 /// GamePhase represents the mutually exclusive states of the game.
 ///
 /// Rust enums are exhaustive — the compiler forces us to handle every variant.
@@ -234,6 +236,9 @@ impl GameState {
 
                 // Draw the player on top of everything.
                 self.player.draw();
+
+                // Draw the HUD (fuel bar and score).
+                hud::draw(&self.player, self.total_distance);
             }
             GamePhase::Dead { score } => {
                 // Game over screen: display the world, rocks, player, and message.
@@ -246,6 +251,9 @@ impl GameState {
 
                 // Draw the player where they collided.
                 self.player.draw();
+
+                // Draw the HUD (fuel bar and score visible through game over).
+                hud::draw(&self.player, self.total_distance);
 
                 // Render a semi-transparent dark overlay for visual emphasis.
                 draw_rectangle(0.0, 0.0, screen_width(), screen_height(), Color::new(0.0, 0.0, 0.0, 0.5));
