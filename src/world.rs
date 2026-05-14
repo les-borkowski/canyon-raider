@@ -19,9 +19,6 @@ pub const SCROLL_SPEED: f32 = 150.0;
 // Width of the cliff face strip that creates the pseudo-3D effect.
 const CLIFF_FACE_WIDTH: f32 = 8.0;
 
-// Height of the extrusion on the fuel depot platform.
-const EXTRUDE_HEIGHT: f32 = 6.0;
-
 /// FuelDepot represents a collectible fuel pickup in the canyon.
 ///
 /// The player can fly over a depot to refuel. The `collected` flag tracks whether
