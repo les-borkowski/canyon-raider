@@ -7,6 +7,9 @@ use macroquad::prelude::*;
 mod player;
 use player::Player;
 
+mod world;
+use world::{World, SLICE_HEIGHT, SCROLL_SPEED};
+
 /// GamePhase represents the mutually exclusive states of the game.
 ///
 /// Rust enums are exhaustive — the compiler forces us to handle every variant.
@@ -30,6 +33,7 @@ pub enum GamePhase {
 /// This structure also makes it easy to reset the game (just create a new GameState).
 pub struct GameState {
     pub player: Player,
+    pub world: World,
     pub phase: GamePhase,
     pub total_distance: f32,
 }
@@ -39,6 +43,7 @@ impl GameState {
     fn new() -> Self {
         Self {
             player: Player::new(screen_width() / 2.0, screen_height() * 0.75),
+            world: World::new(),
             phase: GamePhase::Playing,
             total_distance: 0.0,
         }
@@ -54,10 +59,14 @@ impl GameState {
                 // Update player position from keyboard input.
                 self.player.update();
 
+                // Update the world: scroll the canyon and generate new slices.
+                // Pass 300.0 as the minimum canyon width for now.
+                self.world.update(300.0);
+
                 // Advance the distance traveled. The player moves forward at a constant rate.
                 // This distance eventually becomes the score.
-                // 150.0 pixels/second simulates forward motion through the canyon.
-                self.total_distance += 150.0 * get_frame_time();
+                // We use SCROLL_SPEED (defined in world.rs) for consistency.
+                self.total_distance += SCROLL_SPEED * get_frame_time();
             }
             GamePhase::Dead { .. } => {
                 // Game is over. Check if the player pressed Space to restart.
@@ -80,11 +89,17 @@ impl GameState {
 
         match self.phase {
             GamePhase::Playing => {
-                // Draw the active game: player triangle on a black background.
+                // Draw the scrolling canyon walls and fuel depots.
+                self.world.draw();
+
+                // Draw the player on top of the canyon.
                 self.player.draw();
             }
             GamePhase::Dead { score } => {
-                // Game over screen: display the player and a message with the final score.
+                // Game over screen: display the world, player, and game over message.
+                self.world.draw();
+
+                // Draw the player where they collided.
                 self.player.draw();
 
                 // Format and display the game-over message.
