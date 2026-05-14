@@ -75,9 +75,9 @@ impl GameState {
         let mut hit = false;
 
         // Check collision with canyon walls.
-        // We iterate through all slices and check if the player overlaps with any wall.
+        // Must use the same formula as world.draw() so collision positions match visuals.
         'walls: for (i, slice) in self.world.slices.iter().enumerate() {
-            let sy = i as f32 * SLICE_HEIGHT - scroll;
+            let sy = i as f32 * SLICE_HEIGHT + scroll - SLICE_HEIGHT;
 
             // Check left wall collision: is the player inside the left wall?
             if obstacles::rects_overlap(px, py, pw, ph, 0.0, sy, slice.left_wall, SLICE_HEIGHT) {
@@ -160,8 +160,9 @@ impl GameState {
         let mut refueled = false;
 
         // Iterate through all canyon slices to check for fuel depot collisions.
+        // Must use the same Y formula as world.draw() to stay in sync with visuals.
         for (i, slice) in self.world.slices.iter_mut().enumerate() {
-            let sy = i as f32 * SLICE_HEIGHT - scroll;
+            let sy = i as f32 * SLICE_HEIGHT + scroll - SLICE_HEIGHT;
 
             // Check if the slice has a fuel depot and if the player is overlapping it.
             if let Some(ref mut depot) = slice.fuel_depot {
