@@ -43,4 +43,19 @@ mod tests {
         w.gust = 50.0;
         assert_eq!(w.current_force(0.0), 0.0);
     }
+
+    #[test]
+    fn wind_force_scales_with_ramp_and_direction() {
+        let mut w = Wind::new();
+        w.direction = 1.0;
+        w.gust = 0.0;
+        // At full ramp, force equals BASE_STRENGTH.
+        assert!((w.current_force(1.0) - BASE_STRENGTH).abs() < f32::EPSILON);
+        // Reversed direction reverses sign.
+        w.direction = -1.0;
+        assert!((w.current_force(1.0) + BASE_STRENGTH).abs() < f32::EPSILON);
+        // Half ramp halves the force.
+        w.direction = 1.0;
+        assert!((w.current_force(0.5) - BASE_STRENGTH * 0.5).abs() < f32::EPSILON);
+    }
 }
