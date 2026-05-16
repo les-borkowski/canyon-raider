@@ -118,16 +118,18 @@ impl Wind {
             p.pos.x += force * 1.5 * dt;
             p.pos.y += crate::world::SCROLL_SPEED * dt;
 
-            // Respawn off-screen particles at the top with random x.
+            // Respawn off-screen particles at the opposite edge.
+            // Using else-if so each particle resets at most once per frame.
             if p.pos.y > sh {
+                // Off-bottom: respawn at top with random x.
                 p.pos.y = 0.0;
                 p.pos.x = gen_range(0.0, sw);
-            }
-            if p.pos.x < 0.0 {
+            } else if p.pos.x < 0.0 {
+                // Off-left: respawn at right edge with random y.
                 p.pos.x = sw;
                 p.pos.y = gen_range(0.0, sh);
-            }
-            if p.pos.x > sw {
+            } else if p.pos.x > sw {
+                // Off-right: respawn at left edge with random y.
                 p.pos.x = 0.0;
                 p.pos.y = gen_range(0.0, sh);
             }
