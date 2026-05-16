@@ -1,6 +1,7 @@
 // Wind module — horizontal wind that pushes the plane.
 // Particles are visual only; gameplay force comes from `current_force()`.
 
+use macroquad::prelude::*;
 use macroquad::rand::gen_range;
 
 /// Baseline maximum wind strength in pixels per second.
@@ -23,22 +24,47 @@ const GUST_CHANCE: f32 = 0.3;
 /// Magnitude of a fresh gust, expressed as a multiple of BASE_STRENGTH.
 const GUST_MULTIPLIER: f32 = 2.0;
 
+/// Number of dust particles drawn each frame.
+const PARTICLE_COUNT: usize = 80;
+
+struct Particle {
+    pos: Vec2,
+}
+
 pub struct Wind {
     pub direction: f32,
     target_direction: f32,
     drift_timer: f32,
     gust_timer: f32,
     gust: f32,
+    particles: Vec<Particle>,
+    /// Cached screen dimensions, set at construction time so update/draw
+    /// don't need to call screen_width()/screen_height() (which panic
+    /// in unit tests without a GL context).
+    screen_w: f32,
+    screen_h: f32,
 }
 
 impl Wind {
     pub fn new() -> Self {
+        Self::new_with_size(screen_width(), screen_height())
+    }
+
+    /// Construct a Wind with explicit dimensions.
+    /// Used directly in unit tests to avoid requiring a macroquad GL context.
+    pub(crate) fn new_with_size(sw: f32, sh: f32) -> Self {
+        let particles = (0..PARTICLE_COUNT)
+            .map(|_| Particle { pos: Vec2::new(gen_range(0.0, sw), gen_range(0.0, sh)) })
+            .collect();
         Self {
             direction: 0.0,
             target_direction: 0.0,
             drift_timer: 5.0,
             gust_timer: 5.0,
             gust: 0.0,
+            particles,
+            screen_w: sw,
+            screen_h: sh,
         }
     }
 
@@ -52,7 +78,7 @@ impl Wind {
     /// Advance the wind simulation by `dt` seconds.
     /// `ramp` is unused for drift but kept in the signature so callers
     /// can pass the same difficulty progress they pass to `current_force`.
-    pub fn update(&mut self, dt: f32, _ramp: f32) {
+    pub fn update(&mut self, dt: f32, ramp: f32) {
         // 1. Drift timer: when it elapses, pick a new target_direction.
         self.drift_timer -= dt;
         if self.drift_timer <= 0.0 {
@@ -82,6 +108,38 @@ impl Wind {
         // 4. Decay the gust toward 0. GUST_DECAY is per-second, so we raise
         //    it to dt to get frame-rate-aware behavior in one step.
         self.gust *= GUST_DECAY.powf(dt);
+
+        // 5. Drift particles. They scroll downward with the world at SCROLL_SPEED
+        //    so the screen always looks alive, and horizontally with the wind.
+        let force = self.current_force(ramp);
+        let sw = self.screen_w;
+        let sh = self.screen_h;
+        for p in &mut self.particles {
+            p.pos.x += force * 1.5 * dt;
+            p.pos.y += crate::world::SCROLL_SPEED * dt;
+
+            // Respawn off-screen particles at the top with random x.
+            if p.pos.y > sh {
+                p.pos.y = 0.0;
+                p.pos.x = gen_range(0.0, sw);
+            }
+            if p.pos.x < 0.0 {
+                p.pos.x = sw;
+                p.pos.y = gen_range(0.0, sh);
+            }
+            if p.pos.x > sw {
+                p.pos.x = 0.0;
+                p.pos.y = gen_range(0.0, sh);
+            }
+        }
+    }
+
+    /// Draw all wind particles as small low-alpha dots over the background.
+    pub fn draw(&self) {
+        let color = Color::from_rgba(220, 235, 245, 80); // pale blue-white
+        for p in &self.particles {
+            draw_circle(p.pos.x, p.pos.y, 1.0, color);
+        }
     }
 }
 
@@ -91,7 +149,7 @@ mod tests {
 
     #[test]
     fn wind_force_is_zero_at_ramp_zero() {
-        let mut w = Wind::new();
+        let mut w = Wind::new_with_size(800.0, 600.0);
         w.direction = 1.0;
         w.gust = 50.0;
         assert_eq!(w.current_force(0.0), 0.0);
@@ -99,7 +157,7 @@ mod tests {
 
     #[test]
     fn wind_force_scales_with_ramp_and_direction() {
-        let mut w = Wind::new();
+        let mut w = Wind::new_with_size(800.0, 600.0);
         w.direction = 1.0;
         w.gust = 0.0;
         // At full ramp, force equals BASE_STRENGTH.
@@ -114,7 +172,7 @@ mod tests {
 
     #[test]
     fn direction_lerps_toward_target() {
-        let mut w = Wind::new();
+        let mut w = Wind::new_with_size(800.0, 600.0);
         w.direction = -1.0;
         w.target_direction = 1.0;
         // Force drift_timer high so we don't reroll during the test.
@@ -132,7 +190,7 @@ mod tests {
 
     #[test]
     fn direction_snaps_to_target_when_step_exceeds_remaining_delta() {
-        let mut w = Wind::new();
+        let mut w = Wind::new_with_size(800.0, 600.0);
         w.direction = 0.99;
         w.target_direction = 1.0;
         // Force timers far into the future so they don't interfere.
@@ -147,7 +205,7 @@ mod tests {
 
     #[test]
     fn gust_decays_toward_zero() {
-        let mut w = Wind::new();
+        let mut w = Wind::new_with_size(800.0, 600.0);
         w.gust = 100.0;
         // Push timers far into the future so no new gust spawns mid-test.
         w.gust_timer = 1000.0;
