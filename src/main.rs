@@ -18,6 +18,7 @@ mod background;
 use background::Background;
 
 mod wind;
+use wind::Wind;
 
 /// GamePhase represents the mutually exclusive states of the game.
 ///
@@ -48,6 +49,7 @@ pub struct GameState {
     pub phase: GamePhase,
     pub total_distance: f32,
     pub background: Background,
+    pub wind: Wind,
 }
 
 impl GameState {
@@ -61,6 +63,7 @@ impl GameState {
             phase: GamePhase::Playing,
             total_distance: 0.0,
             background: Background::new(),
+            wind: Wind::new(),
         }
     }
 
@@ -137,6 +140,11 @@ impl GameState {
         300.0 + t * (140.0 - 300.0)
     }
 
+    /// Difficulty ramp shared across canyon, rocks, and wind.
+    fn difficulty_ramp(&self) -> f32 {
+        (self.total_distance / 15_000.0).clamp(0.0, 1.0)
+    }
+
     /// Calculate the current rock spawn interval based on progress (difficulty scaling).
     ///
     /// Uses linear interpolation: at distance 0, rocks spawn every 2.5 seconds.
@@ -195,13 +203,22 @@ impl GameState {
     /// match is exhaustive — if we add a new GamePhase variant, the compiler
     /// forces us to add a corresponding arm here. This prevents logic bugs.
     fn update(&mut self) {
-        // Update background unconditionally so it keeps scrolling even on game over.
-        self.background.update(get_frame_time());
+        let dt = get_frame_time();
+        let ramp = self.difficulty_ramp();
+
+        // Background + wind always tick so the scene stays alive on game over.
+        self.background.update(dt);
+        self.wind.update(dt, ramp);
 
         match self.phase {
             GamePhase::Playing => {
                 // Update player position from keyboard input.
                 self.player.update();
+
+                // Wind pushes the plane horizontally. Re-clamp because the wind
+                // can shove us past the screen edge.
+                self.player.x += self.wind.current_force(ramp) * dt;
+                self.player.x = self.player.x.clamp(10.0, screen_width() - 10.0);
 
                 // Update the world: scroll the canyon and generate new slices.
                 // Pass the dynamically calculated canyon width based on difficulty.
