@@ -17,6 +17,8 @@ mod hud;
 mod background;
 use background::Background;
 
+mod wind;
+
 /// GamePhase represents the mutually exclusive states of the game.
 ///
 /// Rust enums are exhaustive — the compiler forces us to handle every variant.
