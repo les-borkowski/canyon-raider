@@ -8,6 +8,8 @@ use macroquad::rand::gen_range;
 pub const BASE_STRENGTH: f32 = 60.0;
 
 /// How fast `direction` chases `target_direction`, in units per second.
+/// At this rate a shift from 0.0 → ±1.0 takes ~3.3 s; a full end-to-end
+/// shift (-1.0 → +1.0) takes ~6.7 s.
 const DRIFT_RATE: f32 = 0.3;
 
 pub struct Wind {
@@ -102,5 +104,20 @@ mod tests {
         let after = w.direction;
         assert!(after > before, "direction should move toward +1.0 (was {before}, now {after})");
         assert!(after <= 1.0 + f32::EPSILON, "direction should not overshoot");
+    }
+
+    #[test]
+    fn direction_snaps_to_target_when_step_exceeds_remaining_delta() {
+        let mut w = Wind::new();
+        w.direction = 0.99;
+        w.target_direction = 1.0;
+        // Force timers far into the future so they don't interfere.
+        w.drift_timer = 100.0;
+        w.gust_timer = 100.0;
+
+        // One update with dt=0.1 yields a step of 0.03 — larger than the
+        // remaining delta of 0.01, so direction should snap exactly to target.
+        w.update(0.1, 0.0);
+        assert_eq!(w.direction, 1.0);
     }
 }
