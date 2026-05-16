@@ -19,7 +19,7 @@ impl BackgroundLayer {
 
     /// Construct a BackgroundLayer with explicit dimensions.
     /// Used directly in unit tests to avoid requiring a macroquad GL context.
-    fn new_with_size(sw: f32, sh: f32) -> Self {
+    pub(crate) fn new_with_size(sw: f32, sh: f32) -> Self {
         let num_slices = (sh / SLICE_HEIGHT) as usize + 2;
         let mut layer = Self {
             slices: VecDeque::new(),
@@ -59,7 +59,7 @@ impl BackgroundLayer {
     }
 
     pub fn draw(&self) {
-        let sw = screen_width();
+        let sw = self.screen_w;
         let color = Color::from_rgba(42, 52, 68, 255); // #2A3444 muted blue-gray
         for (i, slice) in self.slices.iter().enumerate() {
             let y = i as f32 * SLICE_HEIGHT + self.scroll_offset - SLICE_HEIGHT;
