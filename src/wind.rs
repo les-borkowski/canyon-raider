@@ -12,9 +12,10 @@ pub const BASE_STRENGTH: f32 = 60.0;
 /// shift (-1.0 → +1.0) takes ~6.7 s.
 const DRIFT_RATE: f32 = 0.3;
 
-/// Per-frame multiplicative decay applied to the gust contribution.
-/// 0.92 ≈ ~0.5 s half-life at 60 fps.
-const GUST_DECAY: f32 = 0.92;
+/// Per-second multiplicative decay applied to the gust contribution.
+/// 0.25 per second → half-life ≈ 0.5 s, so a fresh gust fades almost
+/// completely in 2 seconds.
+const GUST_DECAY: f32 = 0.25;
 
 /// Probability (0..1) that the gust timer expiring actually starts a gust.
 const GUST_CHANCE: f32 = 0.3;
@@ -78,11 +79,9 @@ impl Wind {
             self.gust_timer = gen_range(3.0_f32, 7.0);
         }
 
-        // 4. Decay the gust toward 0 each frame (frame-rate aware).
-        //    Apply per-second decay scaled by dt so behavior is consistent
-        //    across different frame rates.
-        let per_second = GUST_DECAY.powf(60.0);
-        self.gust *= per_second.powf(dt);
+        // 4. Decay the gust toward 0. GUST_DECAY is per-second, so we raise
+        //    it to dt to get frame-rate-aware behavior in one step.
+        self.gust *= GUST_DECAY.powf(dt);
     }
 }
 
@@ -150,17 +149,19 @@ mod tests {
     fn gust_decays_toward_zero() {
         let mut w = Wind::new();
         w.gust = 100.0;
-        // Push gust_timer far into the future so no new gust spawns mid-test.
+        // Push timers far into the future so no new gust spawns mid-test.
         w.gust_timer = 1000.0;
         w.drift_timer = 1000.0;
 
         let mut last = w.gust.abs();
-        for _ in 0..20 {
+        // 120 frames @ 60 fps = 2 s; with a 0.5 s half-life that's ~4 half-lives,
+        // leaving roughly 6% of the original magnitude.
+        for _ in 0..120 {
             w.update(1.0 / 60.0, 0.0);
             let now = w.gust.abs();
             assert!(now < last, "gust magnitude should decrease (was {last}, now {now})");
             last = now;
         }
-        assert!(last < 100.0 * 0.5, "after 20 frames gust should be well below half");
+        assert!(last < 100.0 * 0.10, "after 2 s gust should be below 10% of original (was {last})");
     }
 }
