@@ -14,6 +14,9 @@ mod obstacles;
 
 mod hud;
 
+mod background;
+use background::Background;
+
 /// GamePhase represents the mutually exclusive states of the game.
 ///
 /// Rust enums are exhaustive — the compiler forces us to handle every variant.
@@ -42,6 +45,7 @@ pub struct GameState {
     pub rock_timer: f32,
     pub phase: GamePhase,
     pub total_distance: f32,
+    pub background: Background,
 }
 
 impl GameState {
@@ -54,6 +58,7 @@ impl GameState {
             rock_timer: 2.0,
             phase: GamePhase::Playing,
             total_distance: 0.0,
+            background: Background::new(),
         }
     }
 
@@ -196,6 +201,7 @@ impl GameState {
                 // Update the world: scroll the canyon and generate new slices.
                 // Pass the dynamically calculated canyon width based on difficulty.
                 self.world.update(self.canyon_width());
+                self.background.update(get_frame_time());
 
                 // Advance the distance traveled. The player moves forward at a constant rate.
                 // This distance eventually becomes the score.
@@ -258,6 +264,7 @@ impl GameState {
     /// each game phase separately.
     fn draw(&self) {
         clear_background(BLACK);
+        self.background.draw();   // drawn before world and everything else
 
         match self.phase {
             GamePhase::Playing => {
