@@ -193,6 +193,9 @@ impl GameState {
     /// match is exhaustive — if we add a new GamePhase variant, the compiler
     /// forces us to add a corresponding arm here. This prevents logic bugs.
     fn update(&mut self) {
+        // Update background unconditionally so it keeps scrolling even on game over.
+        self.background.update(get_frame_time());
+
         match self.phase {
             GamePhase::Playing => {
                 // Update player position from keyboard input.
@@ -201,7 +204,6 @@ impl GameState {
                 // Update the world: scroll the canyon and generate new slices.
                 // Pass the dynamically calculated canyon width based on difficulty.
                 self.world.update(self.canyon_width());
-                self.background.update(get_frame_time());
 
                 // Advance the distance traveled. The player moves forward at a constant rate.
                 // This distance eventually becomes the score.
