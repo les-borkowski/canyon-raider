@@ -171,11 +171,11 @@ impl World {
         }
     }
 
-    /// Draw the canyon walls and fuel depots.
+    /// Draw the canyon banks and fuel depots.
     ///
-    /// The canyon is rendered with pseudo-3D cliff faces: a warm stone top surface,
-    /// a dark inner cliff face strip, and a 1px highlight lip on each wall.
-    /// Fuel depots are drawn as raised platforms with a cross marker.
+    /// Each bank is rendered as a sandy top surface with a green grass band at the
+    /// inner edge, a darker sand cliff face strip, and a 1px dark-green lip where
+    /// grass meets the face. Fuel depots are drawn as raised platforms with a cross.
     pub fn draw(&self) {
         let sw = screen_width();
 
@@ -194,8 +194,8 @@ impl World {
             // Sandy top surface from screen edge to the wall position.
             draw_rectangle(0.0, y, slice.left_wall, SLICE_HEIGHT, sand_top);
             // Green grass band along the inner edge of the bank (20 px wide).
-            let grass_w = 20.0_f32.min(slice.left_wall);
-            draw_rectangle(slice.left_wall - grass_w, y, grass_w, SLICE_HEIGHT, grass_strip);
+            let grass_w_l = 20.0_f32.min(slice.left_wall);
+            draw_rectangle(slice.left_wall - grass_w_l, y, grass_w_l, SLICE_HEIGHT, grass_strip);
             // Inner cliff face strip (sand-colored shadow).
             draw_rectangle(slice.left_wall - CLIFF_FACE_WIDTH, y, CLIFF_FACE_WIDTH, SLICE_HEIGHT, sand_face);
             // Top lip in dark green (where grass meets the face).
