@@ -53,9 +53,7 @@ impl Background {
     }
 
     pub fn draw(&self) {
-        let sw = screen_width();
-        let sh = screen_height();
-        draw_water(sw, sh);
+        draw_water(self.screen_w, self.screen_h);
         let ripple_color = Color::from_rgba(255, 255, 255, 30);
         for r in &self.ripples {
             draw_rectangle(r.x, r.y, r.len, 1.0, ripple_color);
