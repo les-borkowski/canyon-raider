@@ -179,9 +179,10 @@ impl World {
     pub fn draw(&self) {
         let sw = screen_width();
 
-        let stone_top  = Color::from_rgba(139, 115,  85, 255); // #8B7355 warm stone
-        let stone_face = Color::from_rgba( 92,  74,  50, 255); // #5C4A32 shadow
-        let stone_lip  = Color::from_rgba(184, 160, 128, 255); // #B8A080 highlight
+        let sand_top    = Color::from_rgba(214, 188, 138, 255); // #D6BC8A warm sand
+        let sand_face   = Color::from_rgba(150, 122,  74, 255); // #967A4A shadow sand
+        let grass_strip = Color::from_rgba( 78, 142,  58, 255); // #4E8E3A grass green
+        let grass_shadow = Color::from_rgba( 50,  98,  40, 255); // #326228 darker green
 
         let pad_top  = Color::from_rgba( 34, 204,  68, 255); // #22CC44
         let pad_face = Color::from_rgba( 26,  74,  26, 255); // #1A4A1A
@@ -189,21 +190,27 @@ impl World {
         for (i, slice) in self.slices.iter().enumerate() {
             let y = i as f32 * SLICE_HEIGHT + self.scroll_offset - SLICE_HEIGHT;
 
-            // --- Left wall ---
-            // Top surface
-            draw_rectangle(0.0, y, slice.left_wall, SLICE_HEIGHT, stone_top);
-            // Inner cliff face strip
-            draw_rectangle(slice.left_wall - CLIFF_FACE_WIDTH, y, CLIFF_FACE_WIDTH, SLICE_HEIGHT, stone_face);
-            // Highlight lip (1px tall, top of strip)
-            draw_rectangle(slice.left_wall - CLIFF_FACE_WIDTH, y, CLIFF_FACE_WIDTH, 1.0, stone_lip);
+            // --- Left bank ---
+            // Sandy top surface from screen edge to the wall position.
+            draw_rectangle(0.0, y, slice.left_wall, SLICE_HEIGHT, sand_top);
+            // Green grass band along the inner edge of the bank (20 px wide).
+            let grass_w = 20.0_f32.min(slice.left_wall);
+            draw_rectangle(slice.left_wall - grass_w, y, grass_w, SLICE_HEIGHT, grass_strip);
+            // Inner cliff face strip (sand-colored shadow).
+            draw_rectangle(slice.left_wall - CLIFF_FACE_WIDTH, y, CLIFF_FACE_WIDTH, SLICE_HEIGHT, sand_face);
+            // Top lip in dark green (where grass meets the face).
+            draw_rectangle(slice.left_wall - CLIFF_FACE_WIDTH, y, CLIFF_FACE_WIDTH, 1.0, grass_shadow);
 
-            // --- Right wall ---
-            // Top surface
-            draw_rectangle(slice.right_wall, y, sw - slice.right_wall, SLICE_HEIGHT, stone_top);
-            // Inner cliff face strip
-            draw_rectangle(slice.right_wall, y, CLIFF_FACE_WIDTH, SLICE_HEIGHT, stone_face);
-            // Highlight lip
-            draw_rectangle(slice.right_wall, y, CLIFF_FACE_WIDTH, 1.0, stone_lip);
+            // --- Right bank ---
+            let right_w = sw - slice.right_wall;
+            draw_rectangle(slice.right_wall, y, right_w, SLICE_HEIGHT, sand_top);
+            // Grass band along the inner edge.
+            let grass_w_r = 20.0_f32.min(right_w);
+            draw_rectangle(slice.right_wall, y, grass_w_r, SLICE_HEIGHT, grass_strip);
+            // Cliff face strip on the inside of the bank.
+            draw_rectangle(slice.right_wall, y, CLIFF_FACE_WIDTH, SLICE_HEIGHT, sand_face);
+            // Top lip.
+            draw_rectangle(slice.right_wall, y, CLIFF_FACE_WIDTH, 1.0, grass_shadow);
 
             // --- Fuel depot ---
             if let Some(ref depot) = slice.fuel_depot {
