@@ -12,6 +12,16 @@ pub const BASE_STRENGTH: f32 = 60.0;
 /// shift (-1.0 → +1.0) takes ~6.7 s.
 const DRIFT_RATE: f32 = 0.3;
 
+/// Per-frame multiplicative decay applied to the gust contribution.
+/// 0.92 ≈ ~0.5 s half-life at 60 fps.
+const GUST_DECAY: f32 = 0.92;
+
+/// Probability (0..1) that the gust timer expiring actually starts a gust.
+const GUST_CHANCE: f32 = 0.3;
+
+/// Magnitude of a fresh gust, expressed as a multiple of BASE_STRENGTH.
+const GUST_MULTIPLIER: f32 = 2.0;
+
 pub struct Wind {
     pub direction: f32,
     target_direction: f32,
@@ -49,8 +59,7 @@ impl Wind {
             self.drift_timer = gen_range(4.0_f32, 8.0);
         }
 
-        // 2. Lerp direction toward target_direction at DRIFT_RATE per second,
-        //    but never overshoot.
+        // 2. Lerp direction toward target_direction at DRIFT_RATE per second.
         let delta = self.target_direction - self.direction;
         let step = DRIFT_RATE * dt * delta.signum();
         if step.abs() >= delta.abs() {
@@ -58,6 +67,22 @@ impl Wind {
         } else {
             self.direction += step;
         }
+
+        // 3. Gust timer: when it elapses, sometimes start a gust.
+        self.gust_timer -= dt;
+        if self.gust_timer <= 0.0 {
+            if gen_range(0.0_f32, 1.0) < GUST_CHANCE {
+                let sign = if gen_range(0.0_f32, 1.0) < 0.5 { -1.0 } else { 1.0 };
+                self.gust = sign * BASE_STRENGTH * GUST_MULTIPLIER;
+            }
+            self.gust_timer = gen_range(3.0_f32, 7.0);
+        }
+
+        // 4. Decay the gust toward 0 each frame (frame-rate aware).
+        //    Apply per-second decay scaled by dt so behavior is consistent
+        //    across different frame rates.
+        let per_second = GUST_DECAY.powf(60.0);
+        self.gust *= per_second.powf(dt);
     }
 }
 
@@ -119,5 +144,23 @@ mod tests {
         // remaining delta of 0.01, so direction should snap exactly to target.
         w.update(0.1, 0.0);
         assert_eq!(w.direction, 1.0);
+    }
+
+    #[test]
+    fn gust_decays_toward_zero() {
+        let mut w = Wind::new();
+        w.gust = 100.0;
+        // Push gust_timer far into the future so no new gust spawns mid-test.
+        w.gust_timer = 1000.0;
+        w.drift_timer = 1000.0;
+
+        let mut last = w.gust.abs();
+        for _ in 0..20 {
+            w.update(1.0 / 60.0, 0.0);
+            let now = w.gust.abs();
+            assert!(now < last, "gust magnitude should decrease (was {last}, now {now})");
+            last = now;
+        }
+        assert!(last < 100.0 * 0.5, "after 20 frames gust should be well below half");
     }
 }
