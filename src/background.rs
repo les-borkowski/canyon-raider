@@ -71,12 +71,19 @@ impl BackgroundLayer {
 
 pub struct Background {
     layer: BackgroundLayer,
+    stars: Vec<Vec2>,
 }
 
 impl Background {
     pub fn new() -> Self {
+        let sw = screen_width();
+        let sh = screen_height();
+        let stars = (0..30)
+            .map(|_| Vec2::new(gen_range(0.0, sw), gen_range(0.0, sh)))
+            .collect();
         Self {
             layer: BackgroundLayer::new(),
+            stars,
         }
     }
 
@@ -88,6 +95,9 @@ impl Background {
         let sw = screen_width();
         let sh = screen_height();
         draw_gradient(sw, sh);
+        for &star in &self.stars {
+            draw_circle(star.x, star.y, 1.5, Color::from_rgba(180, 190, 210, 180));
+        }
         self.layer.draw();
     }
 }
