@@ -95,6 +95,7 @@ impl Background {
         let sw = screen_width();
         let sh = screen_height();
         draw_gradient(sw, sh);
+        draw_horizon_glow(sw, sh);
         for &star in &self.stars {
             draw_circle(star.x, star.y, 1.5, Color::from_rgba(180, 190, 210, 180));
         }
@@ -113,6 +114,14 @@ fn draw_gradient(sw: f32, sh: f32) {
         let g = (tg as f32 + t * (bg as f32 - tg as f32)) as u8;
         let b = (tb as f32 + t * (bb as f32 - tb as f32)) as u8;
         draw_rectangle(0.0, i as f32 * step_h, sw, step_h + 1.0, Color::from_rgba(r, g, b, 255));
+    }
+}
+
+fn draw_horizon_glow(sw: f32, sh: f32) {
+    let center_y = sh * 0.72;
+    let color = Color::from_rgba(180, 100, 32, 12); // #B46420 warm amber, very low alpha
+    for &h in &[40.0_f32, 55.0, 70.0, 55.0, 40.0] {
+        draw_rectangle(0.0, center_y - h / 2.0, sw, h, color);
     }
 }
 
