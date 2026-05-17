@@ -301,7 +301,7 @@ impl GameState {
                 self.player.draw();
 
                 // Draw the HUD (fuel bar and score).
-                hud::draw(&self.player, self.total_distance);
+                hud::draw(&self.player, self.total_distance, self.wind.current_force(self.difficulty_ramp()));
             }
             GamePhase::Dead { score } => {
                 // Game over screen: display the world, rocks, player, and message.
@@ -316,7 +316,7 @@ impl GameState {
                 self.player.draw();
 
                 // Draw the HUD (fuel bar and score visible through game over).
-                hud::draw(&self.player, self.total_distance);
+                hud::draw(&self.player, self.total_distance, self.wind.current_force(self.difficulty_ramp()));
 
                 // Render a semi-transparent dark overlay for visual emphasis.
                 draw_rectangle(0.0, 0.0, screen_width(), screen_height(), Color::new(0.0, 0.0, 0.0, 0.5));

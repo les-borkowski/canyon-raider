@@ -16,7 +16,8 @@ use crate::player::Player;
 /// # Arguments
 /// * `player` - Reference to the player (for fuel level)
 /// * `total_distance` - Distance traveled (converted to score)
-pub fn draw(player: &Player, total_distance: f32) {
+/// * `wind_force` - Current wind force (positive = right, negative = left)
+pub fn draw(player: &Player, total_distance: f32, wind_force: f32) {
     // Fuel bar dimensions: top-left corner at (10, 10), 152 pixels wide, 22 pixels tall.
     const FUEL_BAR_X: f32 = 10.0;
     const FUEL_BAR_Y: f32 = 10.0;
@@ -61,4 +62,50 @@ pub fn draw(player: &Player, total_distance: f32) {
         20.0,
         WHITE,
     );
+
+    draw_wind_indicator(wind_force);
+}
+
+/// Draw a small horizontal arrow showing wind direction and magnitude.
+/// Positive `force` = wind pushing right; negative = pushing left.
+fn draw_wind_indicator(force: f32) {
+    let cx = screen_width() / 2.0;
+    let cy = 22.0;
+
+    // Label to the left of the gauge.
+    draw_text("WIND", cx - 70.0, cy + 5.0, 18.0, WHITE);
+
+    // Zero-reference dot.
+    draw_circle(cx, cy, 2.0, GRAY);
+
+    // Arrow length: scaled by |force| up to a maximum drawn length.
+    const MAX_FORCE_DISPLAY: f32 = 180.0;
+    const MAX_ARROW_PX: f32 = 50.0;
+    let scaled = (force / MAX_FORCE_DISPLAY).clamp(-1.0, 1.0);
+    let len = scaled * MAX_ARROW_PX;
+    let tip_x = cx + len;
+
+    // Color by magnitude (mirrors fuel bar pattern: calm / moderate / strong).
+    let mag = force.abs();
+    let color = if mag < 40.0 {
+        LIGHTGRAY
+    } else if mag < 100.0 {
+        YELLOW
+    } else {
+        ORANGE
+    };
+
+    // Shaft.
+    draw_line(cx, cy, tip_x, cy, 3.0, color);
+
+    // Arrowhead — triangle pointing in the direction the wind is blowing.
+    if len.abs() > 1.0 {
+        let dir = if len >= 0.0 { 1.0 } else { -1.0 };
+        draw_triangle(
+            Vec2::new(tip_x, cy),
+            Vec2::new(tip_x - 5.0 * dir, cy - 4.0),
+            Vec2::new(tip_x - 5.0 * dir, cy + 4.0),
+            color,
+        );
+    }
 }
