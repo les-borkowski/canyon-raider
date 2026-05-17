@@ -286,6 +286,7 @@ impl GameState {
     fn draw(&self) {
         clear_background(BLACK);
         self.background.draw();   // drawn before world and everything else
+        self.wind.draw();         // drifting dust over the river
 
         match self.phase {
             GamePhase::Playing => {
