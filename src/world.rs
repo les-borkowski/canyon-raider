@@ -196,6 +196,17 @@ impl World {
     }
 }
 
+fn dither_pixel_color(cx: i32, cy: i32, a: Color, b: Color, density: f32) -> Color {
+    let bayer = ((cx + cy) & 1) == 0;
+    let h_jit = (((cx.wrapping_mul(7919)) ^ (cy.wrapping_mul(6151))) & 0xff) as f32 / 255.0;
+    let use_b = if density >= 0.5 {
+        bayer || h_jit < (density - 0.5) * 2.0
+    } else {
+        bayer && h_jit < density * 2.0
+    };
+    if use_b { b } else { a }
+}
+
 /// Draw a 2x2 Bayer-checker dither between two colours.
 /// `density` 0.5 = perfect checkerboard. >0.5 biases toward `b`; <0.5 toward `a`.
 /// All cells are snapped to the `PIXEL` grid.
@@ -206,19 +217,55 @@ fn draw_dither(x: f32, y: f32, w: f32, h: f32, a: Color, b: Color, density: f32)
         while xx < w {
             let cx = ((x + xx) / PIXEL) as i32;
             let cy = ((y + yy) / PIXEL) as i32;
-            let bayer = ((cx + cy) & 1) == 0;
-            // Deterministic hash for sub-checkerboard jitter, so densities
-            // other than 0.5 don't look like a perfectly regular grid.
-            let h_jit = (((cx.wrapping_mul(7919) ^ cy.wrapping_mul(6151)) & 0xff) as f32) / 255.0;
-            let use_b = if density >= 0.5 {
-                bayer || h_jit < (density - 0.5) * 2.0
-            } else {
-                bayer && h_jit < density * 2.0
-            };
-            let col = if use_b { b } else { a };
+            let col = dither_pixel_color(cx, cy, a, b, density);
             draw_rectangle(x + xx, y + yy, PIXEL, PIXEL, col);
             xx += PIXEL;
         }
         yy += PIXEL;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dither_pixel_color_half_density_is_checkerboard() {
+        let a = Color::new(1.0, 0.0, 0.0, 1.0);
+        let b = Color::new(0.0, 0.0, 1.0, 1.0);
+        // density=0.5: threshold is 0.0, jitter never triggers → pure Bayer
+        // use_b = bayer = ((cx+cy) & 1) == 0
+        assert_eq!(dither_pixel_color(0, 0, a, b, 0.5), b); // even → use_b
+        assert_eq!(dither_pixel_color(1, 0, a, b, 0.5), a); // odd  → use_a
+        assert_eq!(dither_pixel_color(0, 1, a, b, 0.5), a); // odd  → use_a
+        assert_eq!(dither_pixel_color(1, 1, a, b, 0.5), b); // even → use_b
+    }
+
+    #[test]
+    fn dither_pixel_color_density_one_always_b() {
+        let a = Color::new(1.0, 0.0, 0.0, 1.0);
+        let b = Color::new(0.0, 0.0, 1.0, 1.0);
+        // density=1.0: threshold = (1.0-0.5)*2.0 = 1.0, h_jit always < 1.0
+        // use_b = bayer || true = always true
+        for cx in 0..4i32 {
+            for cy in 0..4i32 {
+                assert_eq!(dither_pixel_color(cx, cy, a, b, 1.0), b,
+                    "expected b at ({cx},{cy})");
+            }
+        }
+    }
+
+    #[test]
+    fn dither_pixel_color_density_zero_always_a() {
+        let a = Color::new(1.0, 0.0, 0.0, 1.0);
+        let b = Color::new(0.0, 0.0, 1.0, 1.0);
+        // density=0.0: threshold = 0.0*2.0 = 0.0, h_jit never < 0.0
+        // use_b = bayer && false = always false
+        for cx in 0..4i32 {
+            for cy in 0..4i32 {
+                assert_eq!(dither_pixel_color(cx, cy, a, b, 0.0), a,
+                    "expected a at ({cx},{cy})");
+            }
+        }
     }
 }
