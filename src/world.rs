@@ -14,6 +14,11 @@ use macroquad::rand::gen_range;
 use crate::constants::*;
 use crate::palette::{Palette, snap_pixel};
 
+const DITHER_TILE: usize = 64;                      // jitter repeat period, chunky pixels
+const DITHER_TEX_W: usize = DITHER_TILE + 4;        // 68 chunky px wide (4 = DITHER_WIDTH/PIXEL)
+const DITHER_TEX_H: usize = DITHER_TILE + 10;       // 74 chunky px tall (10 = SLICE_HEIGHT/PIXEL)
+const PIXEL_USIZE: usize = PIXEL as usize;          // 2 — screen pixels per chunky pixel
+
 /// FuelDepot represents a collectible fuel pickup in the canyon.
 pub struct FuelDepot {
     pub x: f32,
@@ -225,6 +230,46 @@ fn draw_dither(x: f32, y: f32, w: f32, h: f32, a: Color, b: Color, density: f32)
     }
 }
 
+fn bake_dither_texture(a: Color, b: Color, density: f32) -> Texture2D {
+    let w = DITHER_TEX_W * PIXEL_USIZE; // 136 screen pixels
+    let h = DITHER_TEX_H * PIXEL_USIZE; // 148 screen pixels
+    let mut img = Image::gen_image_color(w as u16, h as u16, a);
+    for cy in 0..DITHER_TEX_H {
+        for cx in 0..DITHER_TEX_W {
+            let col = dither_pixel_color(cx as i32, cy as i32, a, b, density);
+            for dy in 0..PIXEL_USIZE {
+                for dx in 0..PIXEL_USIZE {
+                    img.set_pixel(
+                        (cx * PIXEL_USIZE + dx) as u32,
+                        (cy * PIXEL_USIZE + dy) as u32,
+                        col,
+                    );
+                }
+            }
+        }
+    }
+    Texture2D::from_image(&img)
+}
+
+struct DitherAtlas {
+    // [palette_idx][bank: 0=left density 0.55, 1=right density 0.45]
+    textures: [[Texture2D; 2]; 4],
+}
+
+impl DitherAtlas {
+    fn new() -> Self {
+        use crate::palette::{DAWN, DUSK, MIDDAY, NIGHT};
+        // Palette order matches TimeOfDay as usize: Dawn=0, Midday=1, Dusk=2, Night=3
+        let palettes = [&DAWN, &MIDDAY, &DUSK, &NIGHT];
+        Self {
+            textures: palettes.map(|p| [
+                bake_dither_texture(p.sand, p.sand_shadow, 0.55), // left bank
+                bake_dither_texture(p.sand_shadow, p.sand, 0.45), // right bank
+            ]),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -267,6 +312,26 @@ mod tests {
             for cy in 0..4i32 {
                 assert_eq!(dither_pixel_color(cx, cy, a, b, 0.0), a,
                     "expected a at ({cx},{cy})");
+            }
+        }
+    }
+
+    #[test]
+    fn dither_source_rect_never_exceeds_texture_bounds() {
+        const TEX_W: f32 = (DITHER_TEX_W * PIXEL_USIZE) as f32; // 136.0
+        const TEX_H: f32 = (DITHER_TEX_H * PIXEL_USIZE) as f32; // 148.0
+        for raw_cx in 0..=127i32 {
+            for raw_cy in 0..=127i32 {
+                let src_x = raw_cx.rem_euclid(DITHER_TILE as i32) as f32 * PIXEL;
+                let src_y = raw_cy.rem_euclid(DITHER_TILE as i32) as f32 * PIXEL;
+                assert!(
+                    src_x + DITHER_WIDTH <= TEX_W,
+                    "src_x={src_x} overflows at raw_cx={raw_cx}"
+                );
+                assert!(
+                    src_y + SLICE_HEIGHT <= TEX_H,
+                    "src_y={src_y} overflows at raw_cy={raw_cy}"
+                );
             }
         }
     }
