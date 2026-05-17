@@ -10,7 +10,7 @@ const EXTRUDE_HEIGHT: f32 = 6.0;
 
 /// Rock represents a single obstacle in the canyon.
 ///
-/// Rocks are drawn as pseudo-3D rounded boulders and exist in screen-space coordinates.
+/// Rocks are drawn as pseudo-3D irregular boulders and exist in screen-space coordinates.
 /// Each frame, they move downward along with the scrolling canyon.
 pub struct Rock {
     /// Horizontal position of the rock's top-left corner
@@ -21,33 +21,39 @@ pub struct Rock {
     pub width: f32,
     /// Height of the rock in pixels
     pub height: f32,
+    /// Vertices relative to the rock's visual center, in draw order.
+    /// Generated once at spawn so each rock has its own irregular silhouette.
+    points: Vec<Vec2>,
 }
 
 impl Rock {
-    /// Draw the rock as a pseudo-3D rounded boulder with shadow and highlight.
+    /// Draw the rock as a pseudo-3D irregular boulder with shadow and highlight.
     pub fn draw(&self) {
         let cx = self.x + self.width / 2.0;
         let cy = self.y + self.height / 2.0;
-        let radius = (self.width + self.height) / 4.0;
 
-        // Shadow (drawn first, offset down-right)
-        draw_poly(
-            cx + EXTRUDE_HEIGHT, cy + EXTRUDE_HEIGHT,
-            8, radius, 0.0,
-            Color::from_rgba(26, 16, 8, 255),   // #1A1008 near-black
-        );
+        // Shadow: navy that sits naturally on the river-blue background.
+        draw_irregular_poly(cx + EXTRUDE_HEIGHT, cy + EXTRUDE_HEIGHT, &self.points, 1.0,
+            Color::from_rgba(26, 42, 74, 255));   // #1A2A4A navy
         // Rock body
-        draw_poly(
-            cx, cy,
-            8, radius, 0.0,
-            Color::from_rgba(160, 98, 42, 255),  // #A0622A warm brown
-        );
+        draw_irregular_poly(cx, cy, &self.points, 1.0,
+            Color::from_rgba(160, 98, 42, 255));  // #A0622A warm brown
         // Lit highlight (inset, shifted up-left)
-        draw_poly(
-            cx - 2.0, cy - 2.0,
-            8, (radius - 3.0).max(1.0), 0.0,
-            Color::from_rgba(200, 136, 90, 255), // #C8885A light tan
-        );
+        draw_irregular_poly(cx - 2.0, cy - 2.0, &self.points, 0.7,
+            Color::from_rgba(200, 136, 90, 255)); // #C8885A light tan
+    }
+}
+
+/// Draw an irregular polygon as a triangle fan from `(cx, cy)`.
+/// `points` are vertex offsets from the center; `scale` shrinks/grows the shape
+/// without recomputing the points (used for the inset highlight).
+fn draw_irregular_poly(cx: f32, cy: f32, points: &[Vec2], scale: f32, color: Color) {
+    let center = Vec2::new(cx, cy);
+    let n = points.len();
+    for i in 0..n {
+        let p1 = points[i] * scale;
+        let p2 = points[(i + 1) % n] * scale;
+        draw_triangle(center, center + p1, center + p2, color);
     }
 }
 
@@ -112,8 +118,21 @@ pub fn try_spawn_rock(
     let max_x = (right_wall - w - 5.0).max(left_wall + 5.0);
     let x = gen_range(left_wall + 5.0, max_x);
 
+    // Build an irregular polygon silhouette: 5-7 sides with each vertex radius
+    // jittered ±15% around the base radius. Each rock gets its own shape.
+    let sides = gen_range(5u32, 8) as usize; // 5, 6, or 7
+    let radius = (w + h) / 4.0;
+    let rotation_offset = gen_range(0.0_f32, std::f32::consts::TAU);
+    let points: Vec<Vec2> = (0..sides)
+        .map(|i| {
+            let angle = rotation_offset + (i as f32 / sides as f32) * std::f32::consts::TAU;
+            let r = radius * gen_range(0.85_f32, 1.15);
+            Vec2::new(r * angle.cos(), r * angle.sin())
+        })
+        .collect();
+
     // Spawn the rock at the top of the screen (y = -h places it just above).
-    rocks.push(Rock { x, y: -h, width: w, height: h });
+    rocks.push(Rock { x, y: -h, width: w, height: h, points });
 }
 
 /// Check if two axis-aligned rectangles overlap.
