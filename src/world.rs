@@ -109,7 +109,7 @@ impl World {
 
     /// Draw the canyon banks and fuel depots in the chunky C64 style using
     /// the supplied palette.
-    pub fn draw(&self, p: &Palette) {
+    pub fn draw(&self, p: &Palette, tod: TimeOfDay) {
         let sw = screen_width();
 
         // Fuel depot still pops in green so the player notices it against
@@ -134,8 +134,20 @@ impl World {
 
             // dithered transition (sand -> shadow) ramps the bank down
             // into the cliff edge.
-            draw_dither(l - DITHER_WIDTH, ys, DITHER_WIDTH, SLICE_HEIGHT,
-                        p.sand, p.sand_shadow, 0.55);
+            {
+                let dx = l - DITHER_WIDTH;
+                let src_x = ((dx / PIXEL) as i32).rem_euclid(DITHER_TILE as i32) as f32 * PIXEL;
+                let src_y = ((ys / PIXEL) as i32).rem_euclid(DITHER_TILE as i32) as f32 * PIXEL;
+                draw_texture_ex(
+                    &self.atlas.textures[tod as usize][0],
+                    dx, ys, WHITE,
+                    DrawTextureParams {
+                        source: Some(Rect::new(src_x, src_y, DITHER_WIDTH, SLICE_HEIGHT)),
+                        dest_size: Some(vec2(DITHER_WIDTH, SLICE_HEIGHT)),
+                        ..Default::default()
+                    },
+                );
+            }
 
             // 2 px dark cliff line right at the wall
             draw_rectangle(l - PIXEL, ys, PIXEL, SLICE_HEIGHT, p.cliff_edge);
@@ -146,8 +158,19 @@ impl World {
             if sand_w_right > 0.0 {
                 draw_rectangle(right_outer_start, ys, sand_w_right, SLICE_HEIGHT, p.sand);
             }
-            draw_dither(r, ys, DITHER_WIDTH, SLICE_HEIGHT,
-                        p.sand_shadow, p.sand, 0.45);
+            {
+                let src_x = ((r / PIXEL) as i32).rem_euclid(DITHER_TILE as i32) as f32 * PIXEL;
+                let src_y = ((ys / PIXEL) as i32).rem_euclid(DITHER_TILE as i32) as f32 * PIXEL;
+                draw_texture_ex(
+                    &self.atlas.textures[tod as usize][1],
+                    r, ys, WHITE,
+                    DrawTextureParams {
+                        source: Some(Rect::new(src_x, src_y, DITHER_WIDTH, SLICE_HEIGHT)),
+                        dest_size: Some(vec2(DITHER_WIDTH, SLICE_HEIGHT)),
+                        ..Default::default()
+                    },
+                );
+            }
             draw_rectangle(r, ys, PIXEL, SLICE_HEIGHT, p.cliff_edge);
 
             // ---- FUEL DEPOT (drawn between the banks) ----
@@ -212,24 +235,6 @@ fn dither_pixel_color(cx: i32, cy: i32, a: Color, b: Color, density: f32) -> Col
         bayer && h_jit < density * 2.0
     };
     if use_b { b } else { a }
-}
-
-/// Draw a 2x2 Bayer-checker dither between two colours.
-/// `density` 0.5 = perfect checkerboard. >0.5 biases toward `b`; <0.5 toward `a`.
-/// All cells are snapped to the `PIXEL` grid.
-fn draw_dither(x: f32, y: f32, w: f32, h: f32, a: Color, b: Color, density: f32) {
-    let mut yy = 0.0;
-    while yy < h {
-        let mut xx = 0.0;
-        while xx < w {
-            let cx = ((x + xx) / PIXEL) as i32;
-            let cy = ((y + yy) / PIXEL) as i32;
-            let col = dither_pixel_color(cx, cy, a, b, density);
-            draw_rectangle(x + xx, y + yy, PIXEL, PIXEL, col);
-            xx += PIXEL;
-        }
-        yy += PIXEL;
-    }
 }
 
 fn bake_dither_texture(a: Color, b: Color, density: f32) -> Texture2D {

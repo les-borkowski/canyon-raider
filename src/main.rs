@@ -203,7 +203,7 @@ impl GameState {
         // Background + wind first, then canyon + rocks + plane on top.
         self.background.draw(palette);
         self.wind.draw(palette);
-        self.world.draw(palette);
+        self.world.draw(palette, theme);
         for rock in &self.rocks { rock.draw(palette); }
         self.player.draw();
         hud::draw(&self.player, self.total_distance, wind_force, theme);
