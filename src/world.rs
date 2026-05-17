@@ -12,7 +12,7 @@ use std::collections::VecDeque;
 use macroquad::prelude::*;
 use macroquad::rand::gen_range;
 use crate::constants::*;
-use crate::palette::{Palette, snap_pixel};
+use crate::palette::{Palette, TimeOfDay, snap_pixel};
 
 const DITHER_TILE: usize = 64;                      // jitter repeat period, chunky pixels
 const DITHER_TEX_W: usize = DITHER_TILE + 4;        // 68 chunky px wide (4 = DITHER_WIDTH/PIXEL)
@@ -39,6 +39,7 @@ pub struct World {
     last_left: f32,
     last_right: f32,
     depot_countdown: u32,
+    atlas: DitherAtlas,
 }
 
 impl World {
@@ -53,6 +54,7 @@ impl World {
             last_left: sw * WALL_START_LEFT,
             last_right: sw * WALL_START_RIGHT,
             depot_countdown: DEPOT_INITIAL_COUNTDOWN,
+            atlas: DitherAtlas::new(),
         };
 
         for _ in 0..num_slices {
