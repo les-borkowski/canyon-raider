@@ -38,7 +38,7 @@ impl Cheats {
     /// Collect typed characters and check for cheat codes. Call once per frame.
     pub fn update(&mut self) {
         while let Some(c) = get_char_pressed() {
-            if !c.is_control() {
+            if c.is_ascii() && !c.is_control() {
                 self.buffer.push(c);
             }
         }
