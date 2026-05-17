@@ -3,29 +3,7 @@
 
 use macroquad::prelude::*;
 use macroquad::rand::gen_range;
-
-/// Baseline maximum wind strength in pixels per second.
-/// At full ramp, |direction| = 1.0 produces this much horizontal push.
-pub const BASE_STRENGTH: f32 = 60.0;
-
-/// How fast `direction` chases `target_direction`, in units per second.
-/// At this rate a shift from 0.0 → ±1.0 takes ~3.3 s; a full end-to-end
-/// shift (-1.0 → +1.0) takes ~6.7 s.
-const DRIFT_RATE: f32 = 0.3;
-
-/// Per-second multiplicative decay applied to the gust contribution.
-/// 0.25 per second → half-life ≈ 0.5 s, so a fresh gust fades almost
-/// completely in 2 seconds.
-const GUST_DECAY: f32 = 0.25;
-
-/// Probability (0..1) that the gust timer expiring actually starts a gust.
-const GUST_CHANCE: f32 = 0.3;
-
-/// Magnitude of a fresh gust, expressed as a multiple of BASE_STRENGTH.
-const GUST_MULTIPLIER: f32 = 2.0;
-
-/// Number of dust particles drawn each frame.
-const PARTICLE_COUNT: usize = 80;
+use crate::constants::*;
 
 struct Particle {
     pos: Vec2,
@@ -53,7 +31,7 @@ impl Wind {
     /// Construct a Wind with explicit dimensions.
     /// Used directly in unit tests to avoid requiring a macroquad GL context.
     pub(crate) fn new_with_size(sw: f32, sh: f32) -> Self {
-        let particles = (0..PARTICLE_COUNT)
+        let particles = (0..WIND_PARTICLE_COUNT)
             .map(|_| Particle { pos: Vec2::new(gen_range(0.0, sw), gen_range(0.0, sh)) })
             .collect();
         Self {
@@ -71,7 +49,7 @@ impl Wind {
     /// Compute the horizontal force (px/sec) applied to the plane this frame.
     /// `ramp` is the 0..1 difficulty progress from `main.rs`.
     pub fn current_force(&self, ramp: f32) -> f32 {
-        let base = self.direction * BASE_STRENGTH;
+        let base = self.direction * WIND_BASE_STRENGTH;
         (base + self.gust) * ramp
     }
 
@@ -83,12 +61,12 @@ impl Wind {
         self.drift_timer -= dt;
         if self.drift_timer <= 0.0 {
             self.target_direction = gen_range(-1.0_f32, 1.0);
-            self.drift_timer = gen_range(4.0_f32, 8.0);
+            self.drift_timer = gen_range(WIND_DRIFT_INTERVAL_MIN, WIND_DRIFT_INTERVAL_MAX);
         }
 
-        // 2. Lerp direction toward target_direction at DRIFT_RATE per second.
+        // 2. Lerp direction toward target_direction at WIND_DRIFT_RATE per second.
         let delta = self.target_direction - self.direction;
-        let step = DRIFT_RATE * dt * delta.signum();
+        let step = WIND_DRIFT_RATE * dt * delta.signum();
         if step.abs() >= delta.abs() {
             self.direction = self.target_direction;
         } else {
@@ -98,16 +76,14 @@ impl Wind {
         // 3. Gust timer: when it elapses, sometimes start a gust.
         self.gust_timer -= dt;
         if self.gust_timer <= 0.0 {
-            if gen_range(0.0_f32, 1.0) < GUST_CHANCE {
+            if gen_range(0.0_f32, 1.0) < WIND_GUST_CHANCE {
                 let sign = if gen_range(0.0_f32, 1.0) < 0.5 { -1.0 } else { 1.0 };
-                self.gust = sign * BASE_STRENGTH * GUST_MULTIPLIER;
+                self.gust = sign * WIND_BASE_STRENGTH * WIND_GUST_MULTIPLIER;
             }
-            self.gust_timer = gen_range(3.0_f32, 7.0);
+            self.gust_timer = gen_range(WIND_GUST_INTERVAL_MIN, WIND_GUST_INTERVAL_MAX);
         }
 
-        // 4. Decay the gust toward 0. GUST_DECAY is per-second, so we raise
-        //    it to dt to get frame-rate-aware behavior in one step.
-        self.gust *= GUST_DECAY.powf(dt);
+        self.gust *= WIND_GUST_DECAY.powf(dt);
 
         // 5. Drift particles. They scroll downward with the world at SCROLL_SPEED
         //    so the screen always looks alive, and horizontally with the wind.
@@ -115,8 +91,8 @@ impl Wind {
         let sw = self.screen_w;
         let sh = self.screen_h;
         for p in &mut self.particles {
-            p.pos.x += force * 1.5 * dt;
-            p.pos.y += crate::world::SCROLL_SPEED * dt;
+            p.pos.x += force * WIND_PARTICLE_SCALE * dt;
+            p.pos.y += SCROLL_SPEED * dt;
 
             // Respawn off-screen particles at the opposite edge.
             // Using else-if so each particle resets at most once per frame.
@@ -148,6 +124,7 @@ impl Wind {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::WIND_BASE_STRENGTH;
 
     #[test]
     fn wind_force_is_zero_at_ramp_zero() {
@@ -162,14 +139,14 @@ mod tests {
         let mut w = Wind::new_with_size(800.0, 600.0);
         w.direction = 1.0;
         w.gust = 0.0;
-        // At full ramp, force equals BASE_STRENGTH.
-        assert!((w.current_force(1.0) - BASE_STRENGTH).abs() < f32::EPSILON);
+        // At full ramp, force equals WIND_BASE_STRENGTH.
+        assert!((w.current_force(1.0) - WIND_BASE_STRENGTH).abs() < f32::EPSILON);
         // Reversed direction reverses sign.
         w.direction = -1.0;
-        assert!((w.current_force(1.0) + BASE_STRENGTH).abs() < f32::EPSILON);
+        assert!((w.current_force(1.0) + WIND_BASE_STRENGTH).abs() < f32::EPSILON);
         // Half ramp halves the force.
         w.direction = 1.0;
-        assert!((w.current_force(0.5) - BASE_STRENGTH * 0.5).abs() < f32::EPSILON);
+        assert!((w.current_force(0.5) - WIND_BASE_STRENGTH * 0.5).abs() < f32::EPSILON);
     }
 
     #[test]

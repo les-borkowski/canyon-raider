@@ -5,6 +5,7 @@
 
 use macroquad::prelude::*;
 use crate::player::Player;
+use crate::constants::{FUEL_WARN, FUEL_CRITICAL};
 
 /// Draw the HUD (heads-up display) elements: fuel bar and score.
 ///
@@ -34,12 +35,12 @@ pub fn draw(player: &Player, total_distance: f32, wind_force: f32) {
 
     // Choose the fill color based on fuel level.
     // This provides visual feedback about remaining fuel.
-    let color = if player.fuel > 50.0 {
-        YELLOW   // Good
-    } else if player.fuel > 25.0 {
-        ORANGE   // Warning
+    let color = if player.fuel > FUEL_WARN {
+        YELLOW
+    } else if player.fuel > FUEL_CRITICAL {
+        ORANGE
     } else {
-        RED      // Critical
+        RED
     };
 
     // Draw the fuel bar fill (1-pixel margin from the border).

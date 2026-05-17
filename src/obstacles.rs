@@ -5,8 +5,7 @@
 
 use macroquad::prelude::*;
 use macroquad::rand::gen_range;
-
-const EXTRUDE_HEIGHT: f32 = 6.0;
+use crate::constants::*;
 
 /// Rock represents a single obstacle in the canyon.
 ///
@@ -33,7 +32,7 @@ impl Rock {
         let cy = self.y + self.height / 2.0;
 
         // Shadow: navy that sits naturally on the river-blue background.
-        draw_irregular_poly(cx + EXTRUDE_HEIGHT, cy + EXTRUDE_HEIGHT, &self.points, 1.0,
+        draw_irregular_poly(cx + ROCK_EXTRUDE, cy + ROCK_EXTRUDE, &self.points, 1.0,
             Color::from_rgba(26, 42, 74, 255));   // #1A2A4A navy
         // Rock body
         draw_irregular_poly(cx, cy, &self.points, 1.0,
@@ -108,9 +107,8 @@ pub fn try_spawn_rock(
     // Varying the interval keeps the game feel less predictable.
     *timer = gen_range(max_interval * 0.5, max_interval);
 
-    // Randomize rock size (between 20-45 pixels wide, 12-22 pixels tall).
-    let w = gen_range(20.0_f32, 45.0);
-    let h = gen_range(12.0_f32, 22.0);
+    let w = gen_range(ROCK_WIDTH_MIN, ROCK_WIDTH_MAX);
+    let h = gen_range(ROCK_HEIGHT_MIN, ROCK_HEIGHT_MAX);
 
     // Pick a random X position within the canyon, with 5-pixel margins.
     // The .max() call prevents the upper bound from being less than the lower bound

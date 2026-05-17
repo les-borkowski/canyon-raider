@@ -6,9 +6,7 @@
 
 use macroquad::prelude::*;
 use macroquad::rand::gen_range;
-use crate::world::SCROLL_SPEED;
-
-const RIPPLE_COUNT: usize = 40;
+use crate::constants::*;
 
 struct Ripple {
     x: f32,

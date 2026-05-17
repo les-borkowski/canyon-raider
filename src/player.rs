@@ -2,6 +2,7 @@
 // The player is represented as a pseudo-3D F-86/MiG-15 jet silhouette.
 
 use macroquad::prelude::*;
+use crate::constants::PLAYER_SPEED;
 
 /// Player struct represents the player's aircraft in the game.
 ///
@@ -96,29 +97,19 @@ impl Player {
     /// After movement, position is clamped to stay within screen bounds, preventing the
     /// player from going off-screen.
     pub fn update(&mut self) {
-        // Movement speed in pixels per second. Higher = faster movement.
-        const SPEED: f32 = 200.0;
-
-        // Get the time elapsed since the last frame, in seconds.
-        // This is essential for frame-rate independent movement.
         let dt = get_frame_time();
 
-        // Handle horizontal movement (left/right).
-        // Both arrow keys and WASD are supported for accessibility.
-        // is_key_down() returns true while a key is held down (unlike is_key_pressed()).
         if is_key_down(KeyCode::Left) || is_key_down(KeyCode::A) {
-            self.x -= SPEED * dt; // Move left (decreasing x)
+            self.x -= PLAYER_SPEED * dt;
         }
         if is_key_down(KeyCode::Right) || is_key_down(KeyCode::D) {
-            self.x += SPEED * dt; // Move right (increasing x)
+            self.x += PLAYER_SPEED * dt;
         }
-
-        // Handle vertical movement (up/down).
         if is_key_down(KeyCode::Up) || is_key_down(KeyCode::W) {
-            self.y -= SPEED * dt; // Move up (decreasing y, since y increases downward)
+            self.y -= PLAYER_SPEED * dt;
         }
         if is_key_down(KeyCode::Down) || is_key_down(KeyCode::S) {
-            self.y += SPEED * dt; // Move down (increasing y)
+            self.y += PLAYER_SPEED * dt;
         }
 
         // Clamp position to screen boundaries to prevent the player from going off-screen.

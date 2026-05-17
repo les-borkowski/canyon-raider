@@ -7,8 +7,11 @@ use macroquad::prelude::*;
 mod player;
 use player::Player;
 
+mod constants;
+use crate::constants::*;
+
 mod world;
-use world::{World, SLICE_HEIGHT, SCROLL_SPEED};
+use world::World;
 
 mod obstacles;
 
@@ -59,7 +62,7 @@ impl GameState {
             player: Player::new(screen_width() / 2.0, screen_height() * 0.75),
             world: World::new(),
             rocks: Vec::new(),
-            rock_timer: 2.0,
+            rock_timer: ROCK_INTERVAL_START,
             phase: GamePhase::Playing,
             total_distance: 0.0,
             background: Background::new(),
@@ -125,38 +128,21 @@ impl GameState {
         self.phase = GamePhase::Dead { score };
     }
 
-    /// Calculate the current minimum canyon width based on progress (difficulty scaling).
-    ///
-    /// Uses linear interpolation: at distance 0, the width is 300 pixels.
-    /// At distance 15000 pixels, the width tapers to 140 pixels.
-    /// This creates a smooth difficulty curve where the canyon gradually narrows.
+    /// Canyon channel width, linearly interpolated by difficulty progress.
     fn canyon_width(&self) -> f32 {
-        // Normalize distance to a 0.0–1.0 progress value.
-        // At 15000 pixels, we clamp to 1.0 (max difficulty).
-        let t = (self.total_distance / 15_000.0).clamp(0.0, 1.0);
-
-        // Linear interpolation: start + t * (end - start).
-        // Starts at 300.0 pixels wide, ends at 140.0 pixels wide.
-        300.0 + t * (140.0 - 300.0)
+        let t = (self.total_distance / DIFFICULTY_DISTANCE).clamp(0.0, 1.0);
+        CANYON_WIDTH_START + t * (CANYON_WIDTH_MIN - CANYON_WIDTH_START)
     }
 
     /// Difficulty ramp shared across canyon, rocks, and wind.
     fn difficulty_ramp(&self) -> f32 {
-        (self.total_distance / 15_000.0).clamp(0.0, 1.0)
+        (self.total_distance / DIFFICULTY_DISTANCE).clamp(0.0, 1.0)
     }
 
-    /// Calculate the current rock spawn interval based on progress (difficulty scaling).
-    ///
-    /// Uses linear interpolation: at distance 0, rocks spawn every 2.5 seconds.
-    /// At distance 15000 pixels, rocks spawn every 0.7 seconds.
-    /// This creates a smooth difficulty curve where rocks become more frequent.
+    /// Rock spawn interval in seconds, linearly interpolated by difficulty progress.
     fn rock_interval(&self) -> f32 {
-        // Normalize distance to a 0.0–1.0 progress value.
-        let t = (self.total_distance / 15_000.0).clamp(0.0, 1.0);
-
-        // Linear interpolation: start + t * (end - start).
-        // Starts at 2.5 seconds between rocks, ends at 0.7 seconds.
-        2.5 + t * (0.7 - 2.5)
+        let t = (self.total_distance / DIFFICULTY_DISTANCE).clamp(0.0, 1.0);
+        ROCK_INTERVAL_START + t * (ROCK_INTERVAL_MIN - ROCK_INTERVAL_START)
     }
 
     /// Check if the player is overlapping with any fuel depot and collect it.
@@ -229,9 +215,6 @@ impl GameState {
                 // We use SCROLL_SPEED (defined in world.rs) for consistency.
                 self.total_distance += SCROLL_SPEED * get_frame_time();
 
-                // Drain fuel continuously at a constant rate.
-                // 8.0 fuel units per second = ~12 seconds to empty a full tank.
-                const FUEL_DRAIN: f32 = 8.0;
                 self.player.fuel = (self.player.fuel - FUEL_DRAIN * get_frame_time()).max(0.0);
 
                 // Check if fuel has run out. If so, end the game immediately.

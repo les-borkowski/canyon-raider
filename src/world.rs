@@ -7,17 +7,7 @@
 use std::collections::VecDeque;
 use macroquad::prelude::*;
 use macroquad::rand::gen_range;
-
-// Height of each canyon slice in pixels.
-// The higher this value, the chunkier the scrolling updates.
-// We use 20.0 to balance between update frequency and performance.
-pub const SLICE_HEIGHT: f32 = 20.0;
-
-// Speed at which the canyon scrolls downward, in pixels per second.
-pub const SCROLL_SPEED: f32 = 150.0;
-
-// Width of the cliff face strip that creates the pseudo-3D effect.
-const CLIFF_FACE_WIDTH: f32 = 8.0;
+use crate::constants::*;
 
 /// FuelDepot represents a collectible fuel pickup in the canyon.
 ///
@@ -87,18 +77,13 @@ impl World {
         let mut world = Self {
             slices: VecDeque::new(),
             scroll_offset: 0.0,
-            // Start with the canyon at a reasonable width: 70% of screen width.
-            // The canyon will narrow toward 30% as difficulty increases.
-            last_left: sw * 0.15,
-            last_right: sw * 0.85,
-            // Start with a medium countdown. The first depot will appear soon.
-            depot_countdown: 15,
+            last_left: sw * WALL_START_LEFT,
+            last_right: sw * WALL_START_RIGHT,
+            depot_countdown: DEPOT_INITIAL_COUNTDOWN,
         };
 
-        // Pre-populate the deque with slices.
-        // 300.0 is the minimum canyon width (in pixels).
         for _ in 0..num_slices {
-            let s = world.next_slice(300.0);
+            let s = world.next_slice(CANYON_WIDTH_START);
             world.slices.push_back(s);
         }
 
@@ -116,19 +101,14 @@ impl World {
         let max_left = (sw - min_canyon_width) / 2.0;
         let min_right = sw - max_left;
 
-        // Perturb the left wall slightly: between -6 and +6 pixels.
-        // This creates organic, winding canyon walls.
-        self.last_left = (self.last_left + gen_range(-6.0_f32, 6.0))
-            .clamp(30.0, max_left); // Keep some margin from screen edges
-
-        // Perturb the right wall similarly.
-        self.last_right = (self.last_right + gen_range(-6.0_f32, 6.0))
-            .clamp(min_right, sw - 30.0);
+        self.last_left = (self.last_left + gen_range(-WALL_DRIFT_RANGE, WALL_DRIFT_RANGE))
+            .clamp(WALL_EDGE_MARGIN, max_left);
+        self.last_right = (self.last_right + gen_range(-WALL_DRIFT_RANGE, WALL_DRIFT_RANGE))
+            .clamp(min_right, sw - WALL_EDGE_MARGIN);
 
         // Decide whether to spawn a fuel depot in this slice.
         let fuel_depot = if self.depot_countdown == 0 {
-            // Time to spawn a new depot. Reset countdown to a random interval (12-28 slices).
-            self.depot_countdown = gen_range(12u32, 28);
+            self.depot_countdown = gen_range(DEPOT_INTERVAL_MIN, DEPOT_INTERVAL_MAX);
 
             // Pick a random X position within the canyon, with a 5-pixel margin.
             let depot_x = gen_range(
