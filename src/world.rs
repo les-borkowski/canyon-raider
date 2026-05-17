@@ -255,7 +255,9 @@ fn bake_dither_texture(a: Color, b: Color, density: f32) -> Texture2D {
             }
         }
     }
-    Texture2D::from_image(&img)
+    let tex = Texture2D::from_image(&img);
+    tex.set_filter(FilterMode::Nearest);
+    tex
 }
 
 struct DitherAtlas {
