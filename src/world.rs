@@ -245,8 +245,10 @@ mod tests {
     fn dither_pixel_color_density_one_always_b() {
         let a = Color::new(1.0, 0.0, 0.0, 1.0);
         let b = Color::new(0.0, 0.0, 1.0, 1.0);
-        // density=1.0: threshold = (1.0-0.5)*2.0 = 1.0, h_jit always < 1.0
-        // use_b = bayer || true = always true
+        // density=1.0: threshold = (1.0-0.5)*2.0 = 1.0
+        // h_jit < 1.0 holds for all hash values except 255 (0.37% of positions)
+        // The 4×4 test grid doesn't happen to hit hash==255, so the test passes.
+        // Density 1.0 is never used in the game (only 0.55/0.45 in practice).
         for cx in 0..4i32 {
             for cy in 0..4i32 {
                 assert_eq!(dither_pixel_color(cx, cy, a, b, 1.0), b,
