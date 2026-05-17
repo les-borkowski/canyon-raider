@@ -1,51 +1,48 @@
-// Obstacles module - handles rock generation, scrolling, and collision detection
+// Obstacles module - handles rock generation, scrolling, and collision detection.
 //
-// Rocks are randomly spawned obstacles that the player must avoid.
-// They scroll downward with the canyon, and are drawn as pseudo-3D rounded boulders.
+// Rocks are theme-AGNOSTIC: they're always the same warm brown. Only the
+// SHADOW underneath each rock takes its colour from the active palette so
+// it blends naturally with the water at any time of day.
 
 use macroquad::prelude::*;
 use macroquad::rand::gen_range;
 use crate::constants::*;
+use crate::palette::Palette;
 
-/// Rock represents a single obstacle in the canyon.
-///
-/// Rocks are drawn as pseudo-3D irregular boulders and exist in screen-space coordinates.
-/// Each frame, they move downward along with the scrolling canyon.
+const ROCK_BODY:      Color = Color { r: 160.0 / 255.0, g:  98.0 / 255.0, b: 42.0 / 255.0, a: 1.0 };
+const ROCK_HIGHLIGHT: Color = Color { r: 200.0 / 255.0, g: 136.0 / 255.0, b: 90.0 / 255.0, a: 1.0 };
+
 pub struct Rock {
-    /// Horizontal position of the rock's top-left corner
     pub x: f32,
-    /// Vertical position of the rock's top-left corner
     pub y: f32,
-    /// Width of the rock in pixels
     pub width: f32,
-    /// Height of the rock in pixels
     pub height: f32,
-    /// Vertices relative to the rock's visual center, in draw order.
-    /// Generated once at spawn so each rock has its own irregular silhouette.
+    /// Pre-generated irregular silhouette so each rock keeps its own shape
+    /// across frames.
     points: Vec<Vec2>,
 }
 
 impl Rock {
-    /// Draw the rock as a pseudo-3D irregular boulder with shadow and highlight.
-    pub fn draw(&self) {
+    /// Draw the rock as a chunky boulder: shadow (palette-tinted), body
+    /// (warm brown), highlight (light tan inset upper-left).
+    pub fn draw(&self, p: &Palette) {
         let cx = self.x + self.width / 2.0;
         let cy = self.y + self.height / 2.0;
 
-        // Shadow: navy that sits naturally on the river-blue background.
-        draw_irregular_poly(cx + ROCK_EXTRUDE, cy + ROCK_EXTRUDE, &self.points, 1.0,
-            Color::from_rgba(26, 42, 74, 255));   // #1A2A4A navy
-        // Rock body
-        draw_irregular_poly(cx, cy, &self.points, 1.0,
-            Color::from_rgba(160, 98, 42, 255));  // #A0622A warm brown
-        // Lit highlight (inset, shifted up-left)
-        draw_irregular_poly(cx - 2.0, cy - 2.0, &self.points, 0.7,
-            Color::from_rgba(200, 136, 90, 255)); // #C8885A light tan
+        // Shadow tint = water_deep * 0.55 so the shadow always reads as
+        // "below the water surface" without being a fixed navy that
+        // mismatches dusk/dawn.
+        let s = p.water_deep;
+        let shadow = Color { r: s.r * 0.55, g: s.g * 0.55, b: s.b * 0.55, a: 1.0 };
+
+        // Drop shadow first, then body, then highlight inset toward upper-left.
+        draw_irregular_poly(cx + ROCK_EXTRUDE, cy + ROCK_EXTRUDE, &self.points, 1.0, shadow);
+        draw_irregular_poly(cx, cy, &self.points, 1.0, ROCK_BODY);
+        draw_irregular_poly(cx - 2.0, cy - 2.0, &self.points, 0.7, ROCK_HIGHLIGHT);
     }
 }
 
 /// Draw an irregular polygon as a triangle fan from `(cx, cy)`.
-/// `points` are vertex offsets from the center; `scale` shrinks/grows the shape
-/// without recomputing the points (used for the inset highlight).
 fn draw_irregular_poly(cx: f32, cy: f32, points: &[Vec2], scale: f32, color: Color) {
     let center = Vec2::new(cx, cy);
     let n = points.len();
@@ -56,38 +53,16 @@ fn draw_irregular_poly(cx: f32, cy: f32, points: &[Vec2], scale: f32, color: Col
     }
 }
 
-/// Update all rocks: scroll them downward and remove off-screen rocks.
-///
-/// Each frame, rocks move down by scroll_px pixels (the same amount the canyon scrolls).
-/// When a rock goes far enough down, we remove it from the list to save memory.
-///
-/// # Arguments
-/// * `rocks` - The vector of rocks to update
-/// * `scroll_px` - How many pixels to move each rock downward
+/// Scroll all rocks downward and prune off-screen ones.
 pub fn update_rocks(rocks: &mut Vec<Rock>, scroll_px: f32) {
-    // Scroll each rock downward.
     for rock in rocks.iter_mut() {
         rock.y += scroll_px;
     }
-
-    // Remove rocks that have scrolled completely off-screen.
-    // We add 60.0 as a margin to catch rocks at the very bottom.
-    // The .retain() method keeps elements where the condition is true,
-    // removing all others in a single pass.
     rocks.retain(|r| r.y < screen_height() + 60.0);
 }
 
-/// Attempt to spawn a new rock if the timer has elapsed.
-///
-/// Rocks spawn at the top of the screen (y = -height) at random intervals.
-/// The random interval is within the range [max_interval * 0.5, max_interval].
-///
-/// # Arguments
-/// * `rocks` - The vector to add the new rock to
-/// * `timer` - A mutable timer; decrements by delta-time each call
-/// * `left_wall` - X coordinate of the left canyon wall (rocks spawn to the right of this)
-/// * `right_wall` - X coordinate of the right canyon wall (rocks spawn to the left of this)
-/// * `max_interval` - Maximum time in seconds between rock spawns
+/// Try to spawn a new rock if the timer has elapsed. Rocks appear inside
+/// the current canyon channel at a random X.
 pub fn try_spawn_rock(
     rocks: &mut Vec<Rock>,
     timer: &mut f32,
@@ -95,30 +70,18 @@ pub fn try_spawn_rock(
     right_wall: f32,
     max_interval: f32,
 ) {
-    // Decrement the timer by the elapsed time this frame.
     *timer -= get_frame_time();
-
-    // If the timer hasn't elapsed yet, do nothing.
-    if *timer > 0.0 {
-        return;
-    }
-
-    // Timer has elapsed! Reset it to a new random interval.
-    // Varying the interval keeps the game feel less predictable.
+    if *timer > 0.0 { return; }
     *timer = gen_range(max_interval * 0.5, max_interval);
 
     let w = gen_range(ROCK_WIDTH_MIN, ROCK_WIDTH_MAX);
     let h = gen_range(ROCK_HEIGHT_MIN, ROCK_HEIGHT_MAX);
 
-    // Pick a random X position within the canyon, with 5-pixel margins.
-    // The .max() call prevents the upper bound from being less than the lower bound
-    // if the canyon is very narrow.
     let max_x = (right_wall - w - 5.0).max(left_wall + 5.0);
     let x = gen_range(left_wall + 5.0, max_x);
 
-    // Build an irregular polygon silhouette: 5-7 sides with each vertex radius
-    // jittered ±15% around the base radius. Each rock gets its own shape.
-    let sides = gen_range(5u32, 8) as usize; // 5, 6, or 7
+    // 5–7-sided irregular silhouette with ±15% radius jitter per vertex.
+    let sides = gen_range(5u32, 8) as usize;
     let radius = (w + h) / 4.0;
     let rotation_offset = gen_range(0.0_f32, std::f32::consts::TAU);
     let points: Vec<Vec2> = (0..sides)
@@ -129,31 +92,15 @@ pub fn try_spawn_rock(
         })
         .collect();
 
-    // Spawn the rock at the top of the screen (y = -h places it just above).
     rocks.push(Rock { x, y: -h, width: w, height: h, points });
 }
 
 /// Check if two axis-aligned rectangles overlap.
-///
-/// This is a standard AABB (Axis-Aligned Bounding Box) collision test.
-/// Two rectangles overlap if they overlap in both the X and Y axes.
-///
-/// # Arguments
-/// * `ax, ay, aw, ah` - Rectangle A: x, y, width, height
-/// * `bx, by, bw, bh` - Rectangle B: x, y, width, height
-///
-/// # Returns
-/// `true` if the rectangles overlap, `false` otherwise
 #[allow(clippy::too_many_arguments)]
 pub fn rects_overlap(
     ax: f32, ay: f32, aw: f32, ah: f32,
     bx: f32, by: f32, bw: f32, bh: f32,
 ) -> bool {
-    // Two rectangles overlap if all of these are true:
-    // - Rectangle A's left edge is left of Rectangle B's right edge
-    // - Rectangle A's right edge is right of Rectangle B's left edge
-    // - Rectangle A's top edge is above Rectangle B's bottom edge
-    // - Rectangle A's bottom edge is below Rectangle B's top edge
     ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by
 }
 
@@ -163,20 +110,16 @@ mod tests {
 
     #[test]
     fn overlapping_rects_detected() {
-        // Two rects clearly overlapping in the middle
         assert!(rects_overlap(0.0, 0.0, 10.0, 10.0, 5.0, 5.0, 10.0, 10.0));
     }
 
     #[test]
     fn touching_edge_not_overlap() {
-        // Two rects touching at an edge: should NOT be considered overlapping.
-        // A is at [0, 10), B is at [10, 20).
         assert!(!rects_overlap(0.0, 0.0, 10.0, 10.0, 10.0, 0.0, 10.0, 10.0));
     }
 
     #[test]
     fn separated_rects_no_overlap() {
-        // Two rects far apart
         assert!(!rects_overlap(0.0, 0.0, 10.0, 10.0, 20.0, 20.0, 10.0, 10.0));
     }
 }

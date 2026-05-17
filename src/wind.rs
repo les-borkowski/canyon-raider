@@ -1,9 +1,16 @@
 // Wind module — horizontal wind that pushes the plane.
+//
 // Particles are visual only; gameplay force comes from `current_force()`.
+//
+// The C64 redesign keeps the same particle simulation (positions, drift,
+// gusts, scroll respawn) but draws each particle as a chunky 2–3 px square
+// snapped to the pixel grid, tinted by the active time-of-day palette so
+// the gust dust matches the lighting.
 
 use macroquad::prelude::*;
 use macroquad::rand::gen_range;
 use crate::constants::*;
+use crate::palette::{Palette, snap_pixel, with_alpha};
 
 struct Particle {
     pos: Vec2,
@@ -16,9 +23,6 @@ pub struct Wind {
     gust_timer: f32,
     gust: f32,
     particles: Vec<Particle>,
-    /// Cached screen dimensions, set at construction time so update/draw
-    /// don't need to call screen_width()/screen_height() (which panic
-    /// in unit tests without a GL context).
     screen_w: f32,
     screen_h: f32,
 }
@@ -28,8 +32,6 @@ impl Wind {
         Self::new_with_size(screen_width(), screen_height())
     }
 
-    /// Construct a Wind with explicit dimensions.
-    /// Used directly in unit tests to avoid requiring a macroquad GL context.
     pub(crate) fn new_with_size(sw: f32, sh: f32) -> Self {
         let particles = (0..WIND_PARTICLE_COUNT)
             .map(|_| Particle { pos: Vec2::new(gen_range(0.0, sw), gen_range(0.0, sh)) })
@@ -47,24 +49,22 @@ impl Wind {
     }
 
     /// Compute the horizontal force (px/sec) applied to the plane this frame.
-    /// `ramp` is the 0..1 difficulty progress from `main.rs`.
     pub fn current_force(&self, ramp: f32) -> f32 {
         let base = self.direction * WIND_BASE_STRENGTH;
         (base + self.gust) * ramp
     }
 
-    /// Advance the wind simulation by `dt` seconds.
-    /// `ramp` is unused for drift but kept in the signature so callers
-    /// can pass the same difficulty progress they pass to `current_force`.
+    /// Advance the wind simulation by `dt` seconds. `ramp` is the 0..1
+    /// difficulty progress so wind ramps up as the run progresses.
     pub fn update(&mut self, dt: f32, ramp: f32) {
-        // 1. Drift timer: when it elapses, pick a new target_direction.
+        // 1. Drift target reroll.
         self.drift_timer -= dt;
         if self.drift_timer <= 0.0 {
             self.target_direction = gen_range(-1.0_f32, 1.0);
             self.drift_timer = gen_range(WIND_DRIFT_INTERVAL_MIN, WIND_DRIFT_INTERVAL_MAX);
         }
 
-        // 2. Lerp direction toward target_direction at WIND_DRIFT_RATE per second.
+        // 2. Lerp current direction toward target at a bounded rate.
         let delta = self.target_direction - self.direction;
         let step = WIND_DRIFT_RATE * dt * delta.signum();
         if step.abs() >= delta.abs() {
@@ -73,7 +73,7 @@ impl Wind {
             self.direction += step;
         }
 
-        // 3. Gust timer: when it elapses, sometimes start a gust.
+        // 3. Gust timer: occasional sharp gust on top of the steady wind.
         self.gust_timer -= dt;
         if self.gust_timer <= 0.0 {
             if gen_range(0.0_f32, 1.0) < WIND_GUST_CHANCE {
@@ -82,11 +82,9 @@ impl Wind {
             }
             self.gust_timer = gen_range(WIND_GUST_INTERVAL_MIN, WIND_GUST_INTERVAL_MAX);
         }
-
         self.gust *= WIND_GUST_DECAY.powf(dt);
 
-        // 5. Drift particles. They scroll downward with the world at SCROLL_SPEED
-        //    so the screen always looks alive, and horizontally with the wind.
+        // 4. Drift particles. Vertical = world scroll; horizontal = wind force.
         let force = self.current_force(ramp);
         let sw = self.screen_w;
         let sh = self.screen_h;
@@ -94,29 +92,31 @@ impl Wind {
             p.pos.x += force * WIND_PARTICLE_SCALE * dt;
             p.pos.y += SCROLL_SPEED * dt;
 
-            // Respawn off-screen particles at the opposite edge.
-            // Using else-if so each particle resets at most once per frame.
             if p.pos.y > sh {
-                // Off-bottom: respawn at top with random x.
                 p.pos.y = 0.0;
                 p.pos.x = gen_range(0.0, sw);
             } else if p.pos.x < 0.0 {
-                // Off-left: respawn at right edge with random y.
                 p.pos.x = sw;
                 p.pos.y = gen_range(0.0, sh);
             } else if p.pos.x > sw {
-                // Off-right: respawn at left edge with random y.
                 p.pos.x = 0.0;
                 p.pos.y = gen_range(0.0, sh);
             }
         }
     }
 
-    /// Draw all wind particles as small low-alpha dots over the background.
-    pub fn draw(&self) {
-        let color = Color::from_rgba(220, 235, 245, 80); // pale blue-white
-        for p in &self.particles {
-            draw_circle(p.pos.x, p.pos.y, 1.0, color);
+    /// Draw all particles as chunky pixel squares tinted by the palette.
+    ///
+    /// Every 7th particle is rendered 3 px instead of 2 px so the field
+    /// reads as varied grain rather than a perfectly uniform stipple.
+    pub fn draw(&self, p: &Palette) {
+        let col = with_alpha(p.particle, 0.55);
+        for (i, part) in self.particles.iter().enumerate() {
+            let x = snap_pixel(part.pos.x);
+            let y = snap_pixel(part.pos.y);
+            let big = (i % 7) == 0;
+            let s = if big { 3.0 } else { 2.0 };
+            draw_rectangle(x, y, s, s, col);
         }
     }
 }
@@ -139,12 +139,9 @@ mod tests {
         let mut w = Wind::new_with_size(800.0, 600.0);
         w.direction = 1.0;
         w.gust = 0.0;
-        // At full ramp, force equals WIND_BASE_STRENGTH.
         assert!((w.current_force(1.0) - WIND_BASE_STRENGTH).abs() < f32::EPSILON);
-        // Reversed direction reverses sign.
         w.direction = -1.0;
         assert!((w.current_force(1.0) + WIND_BASE_STRENGTH).abs() < f32::EPSILON);
-        // Half ramp halves the force.
         w.direction = 1.0;
         assert!((w.current_force(0.5) - WIND_BASE_STRENGTH * 0.5).abs() < f32::EPSILON);
     }
@@ -154,13 +151,12 @@ mod tests {
         let mut w = Wind::new_with_size(800.0, 600.0);
         w.direction = -1.0;
         w.target_direction = 1.0;
-        // Force drift_timer high so we don't reroll during the test.
         w.drift_timer = 100.0;
         w.gust_timer = 100.0;
 
         let before = w.direction;
         for _ in 0..10 {
-            w.update(0.1, 0.0); // ramp=0 to avoid coupling with force
+            w.update(0.1, 0.0);
         }
         let after = w.direction;
         assert!(after > before, "direction should move toward +1.0 (was {before}, now {after})");
@@ -172,12 +168,8 @@ mod tests {
         let mut w = Wind::new_with_size(800.0, 600.0);
         w.direction = 0.99;
         w.target_direction = 1.0;
-        // Force timers far into the future so they don't interfere.
         w.drift_timer = 100.0;
         w.gust_timer = 100.0;
-
-        // One update with dt=0.1 yields a step of 0.03 — larger than the
-        // remaining delta of 0.01, so direction should snap exactly to target.
         w.update(0.1, 0.0);
         assert_eq!(w.direction, 1.0);
     }
@@ -186,13 +178,9 @@ mod tests {
     fn gust_decays_toward_zero() {
         let mut w = Wind::new_with_size(800.0, 600.0);
         w.gust = 100.0;
-        // Push timers far into the future so no new gust spawns mid-test.
         w.gust_timer = 1000.0;
         w.drift_timer = 1000.0;
-
         let mut last = w.gust.abs();
-        // 120 frames @ 60 fps = 2 s; with a 0.5 s half-life that's ~4 half-lives,
-        // leaving roughly 6% of the original magnitude.
         for _ in 0..120 {
             w.update(1.0 / 60.0, 0.0);
             let now = w.gust.abs();

@@ -3,7 +3,6 @@
 // --- World / Canyon ---
 pub const SLICE_HEIGHT: f32 = 20.0;
 pub const SCROLL_SPEED: f32 = 150.0;
-pub const CLIFF_FACE_WIDTH: f32 = 8.0;
 pub const WALL_START_LEFT: f32 = 0.15;      // initial left wall as fraction of screen width
 pub const WALL_START_RIGHT: f32 = 0.85;     // initial right wall as fraction of screen width
 pub const WALL_EDGE_MARGIN: f32 = 30.0;     // minimum gap between wall and screen edge
@@ -12,10 +11,18 @@ pub const DEPOT_INITIAL_COUNTDOWN: u32 = 15; // slices before the first fuel dep
 pub const DEPOT_INTERVAL_MIN: u32 = 12;     // minimum slices between depots
 pub const DEPOT_INTERVAL_MAX: u32 = 28;     // maximum slices between depots
 
+// --- Chunky pixel grid (C64 visual style) ---
+/// Logical pixel size — everything that wants the "computer pixel" look
+/// snaps to this grid. 2 px reads chunky without becoming illegible at
+/// macroquad's default window size.
+pub const PIXEL: f32 = 2.0;
+/// Width of the dithered transition band between sand and the cliff edge.
+pub const DITHER_WIDTH: f32 = 8.0;
+
 // --- Difficulty scaling ---
 pub const DIFFICULTY_DISTANCE: f32 = 15_000.0; // pixels traveled to reach max difficulty
-pub const CANYON_WIDTH_START: f32 = 300.0;     // minimum canyon width at game start
-pub const CANYON_WIDTH_MIN: f32 = 140.0;       // minimum canyon width at max difficulty
+pub const CANYON_WIDTH_START: f32 = 300.0;     // canyon width at game start
+pub const CANYON_WIDTH_MIN: f32 = 140.0;       // canyon width at max difficulty
 pub const ROCK_INTERVAL_START: f32 = 2.5;      // seconds between rock spawns at start
 pub const ROCK_INTERVAL_MIN: f32 = 0.7;        // minimum seconds between rock spawns
 
@@ -40,11 +47,14 @@ pub const WIND_GUST_CHANCE: f32 = 0.3;        // probability a gust timer tick s
 pub const WIND_GUST_MULTIPLIER: f32 = 2.0;    // gust magnitude as multiple of BASE_STRENGTH
 pub const WIND_GUST_INTERVAL_MIN: f32 = 3.0;  // min seconds between gust checks
 pub const WIND_GUST_INTERVAL_MAX: f32 = 7.0;  // max seconds between gust checks
-pub const WIND_PARTICLE_COUNT: usize = 80;
-pub const WIND_PARTICLE_SCALE: f32 = 1.5; // horizontal speed multiplier for particles
+pub const WIND_PARTICLE_COUNT: usize = 90;    // bumped from 80 to compensate for chunkier particles
+pub const WIND_PARTICLE_SCALE: f32 = 1.5;     // horizontal speed multiplier for particles
 
 // --- Background ---
-pub const RIPPLE_COUNT: usize = 40;
+pub const RIPPLE_COUNT: usize = 60;
+/// Vertical spacing between scrolling water "current" bands. Smaller =
+/// busier water; larger = calmer.
+pub const WATER_BAND_SPAN: f32 = 36.0;
 
 // --- HUD ---
 pub const FUEL_WARN: f32 = 50.0;     // fuel % below which bar turns orange

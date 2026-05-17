@@ -1,12 +1,23 @@
 // Background module — renders the river the plane flies over.
 //
-// Solid blue base with a subtle vertical gradient and small horizontal
-// "ripple" lines that scroll downward at the same rate as the world.
-// Ripples respawn at the top when they leave the bottom of the screen.
+// The C64 redesign drops the original vertical gradient in favour of a
+// chunky three-layer composition:
+//
+//   1. flat `water_deep` base fill
+//   2. scrolling 2 px "current bands" (`water_band`) at WATER_BAND_SPAN intervals
+//   3. bright `ripple` dashes scrolling faster than the bands
+//
+// All three layers take their colours from the active palette so the
+// time-of-day theme paints the whole scene at once.
 
 use macroquad::prelude::*;
 use macroquad::rand::gen_range;
 use crate::constants::*;
+use crate::palette::{Palette, snap_pixel};
+
+fn rand_ripple_len() -> f32 {
+    6.0 + (gen_range(0u32, 4) as f32) * 2.0
+}
 
 struct Ripple {
     x: f32,
@@ -20,6 +31,10 @@ pub struct Background {
     /// can run without a macroquad GL context.
     screen_w: f32,
     screen_h: f32,
+    /// Phase used to scroll the dithered "current bands" slowly down the
+    /// screen. Independent from `ripples` so the two layers create
+    /// parallax.
+    band_phase: f32,
 }
 
 impl Background {
@@ -30,47 +45,52 @@ impl Background {
     pub(crate) fn new_with_size(sw: f32, sh: f32) -> Self {
         let ripples = (0..RIPPLE_COUNT)
             .map(|_| Ripple {
-                x: gen_range(0.0, sw),
-                y: gen_range(0.0, sh),
-                len: gen_range(8.0_f32, 20.0),
+                x: snap_pixel(gen_range(0.0, sw)),
+                y: snap_pixel(gen_range(0.0, sh)),
+                len: rand_ripple_len(),
             })
             .collect();
-        Self { ripples, screen_w: sw, screen_h: sh }
+        Self { ripples, screen_w: sw, screen_h: sh, band_phase: 0.0 }
     }
 
     pub fn update(&mut self, dt: f32) {
         for r in &mut self.ripples {
-            r.y += SCROLL_SPEED * dt;
+            r.y += SCROLL_SPEED * 0.8 * dt;
             if r.y > self.screen_h {
                 // Respawn at the top with new x and length.
                 r.y = 0.0;
-                r.x = gen_range(0.0, self.screen_w);
-                r.len = gen_range(8.0_f32, 20.0);
+                r.x = snap_pixel(gen_range(0.0, self.screen_w));
+                r.len = rand_ripple_len();
             }
         }
+        // Slow scroll so the bands lag behind the ripples.
+        self.band_phase = (self.band_phase + SCROLL_SPEED * 0.5 * dt) % WATER_BAND_SPAN;
     }
 
-    pub fn draw(&self) {
-        draw_water(self.screen_w, self.screen_h);
-        let ripple_color = Color::from_rgba(255, 255, 255, 30);
-        for r in &self.ripples {
-            draw_rectangle(r.x, r.y, r.len, 1.0, ripple_color);
+    /// Draw the water layer in the chunky C64 style using the supplied palette.
+    ///
+    /// Drawing order matters: base fill must come first, then bands, then
+    /// the brighter ripple dashes on top.
+    pub fn draw(&self, p: &Palette) {
+        // 1. Base fill
+        draw_rectangle(0.0, 0.0, self.screen_w, self.screen_h, p.water_deep);
+
+        // 2. Scrolling depth bands — two 2 px lighter rows spaced
+        //    WATER_BAND_SPAN apart, scrolled by `band_phase`.
+        let mut y = -WATER_BAND_SPAN + self.band_phase;
+        while y < self.screen_h + WATER_BAND_SPAN {
+            let yy = snap_pixel(y);
+            draw_rectangle(0.0, yy, self.screen_w, PIXEL, p.water_band);
+            y += WATER_BAND_SPAN;
         }
-    }
-}
 
-fn draw_water(sw: f32, sh: f32) {
-    // Vertical gradient: lighter near top, darker near bottom (~10% delta).
-    let steps = 20u32;
-    let step_h = sh / steps as f32;
-    let (tr, tg, tb) = (37u8, 110u8, 168u8); // #256EA8 light river blue
-    let (br, bg, bb) = (30u8,  90u8, 140u8); // #1E5A8C deeper river blue
-    for i in 0..steps {
-        let t = i as f32 / (steps - 1) as f32;
-        let r = (tr as f32 + t * (br as f32 - tr as f32)) as u8;
-        let g = (tg as f32 + t * (bg as f32 - tg as f32)) as u8;
-        let b = (tb as f32 + t * (bb as f32 - tb as f32)) as u8;
-        draw_rectangle(0.0, i as f32 * step_h, sw, step_h + 1.0, Color::from_rgba(r, g, b, 255));
+        // 3. Ripple dashes — bright 2 px tall dashes, snapped to the grid
+        //    so they read as proper chunky pixels.
+        for r in &self.ripples {
+            let x = snap_pixel(r.x);
+            let yy = snap_pixel(r.y);
+            draw_rectangle(x, yy, r.len, PIXEL, p.ripple);
+        }
     }
 }
 
@@ -83,7 +103,6 @@ mod tests {
         let mut bg = Background::new_with_size(800.0, 600.0);
         let initial = bg.ripples.len();
         // Advance by enough time for ripples to scroll past the bottom and respawn.
-        // SCROLL_SPEED = 150 px/s, screen 600 px → ~4 s for a full pass.
         for _ in 0..300 {
             bg.update(1.0 / 60.0); // 5 simulated seconds
         }
@@ -99,5 +118,14 @@ mod tests {
         for r in &bg.ripples {
             assert!(r.y >= 0.0 && r.y <= 600.0, "ripple y out of range: {}", r.y);
         }
+    }
+
+    #[test]
+    fn band_phase_wraps_within_span() {
+        let mut bg = Background::new_with_size(800.0, 600.0);
+        for _ in 0..600 {
+            bg.update(1.0 / 60.0);
+        }
+        assert!(bg.band_phase >= 0.0 && bg.band_phase < WATER_BAND_SPAN);
     }
 }
