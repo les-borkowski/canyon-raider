@@ -102,6 +102,7 @@ pub const NIGHT: Palette = Palette {
 /// Time-of-day selector. Derived from total distance traveled; cycles Dawn →
 /// Midday → Dusk → Night every 90 seconds of gameplay.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(usize)]
 pub enum TimeOfDay {
     Dawn,
     Midday,
