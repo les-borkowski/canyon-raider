@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canyon Raider</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #1a1a1a;
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+        #loading {
+            position: absolute;
+            text-align: center;
+            color: #fff;
+        }
+        #loading p {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <p>Loading Canyon Raider...</p>
+    </div>
+    <canvas id="glCanvas"></canvas>
+    <script src="https://not-fl3.github.io/macroquad_wasm/macroquad.js"></script>
+    <script>
+        load("/canyon_raider.wasm").then(instance => {
+            document.getElementById("loading").style.display = "none";
+        });
+    </script>
+</body>
+</html>

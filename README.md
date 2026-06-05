@@ -2,7 +2,7 @@
 
 A River Raid-inspired top-down scrolling canyon game built in Rust. Fly a biplane through a procedurally generated canyon, avoid walls and rocks, collect fuel depots, and survive as long as possible.
 
-This was a weekend exercise exploring app design with [Claude Code](https://claude.ai/code) and Rust — from scratch to a playable game in a couple of days.
+This was a weekend exercise exploring app design with [Claude Code](https://claude.ai/code) and Rust — from scratch to a playable game in a couple of days, built with an unfamiliar tech stack.
 
 ---
 
