@@ -169,9 +169,11 @@ impl GameState {
         let dt = get_frame_time();
         let ramp = self.difficulty_ramp();
 
-        // Background + wind always tick so the scene stays alive on game over.
-        self.background.update(dt);
-        self.wind.update(dt, ramp);
+        // Background + wind tick while playing/dead, but not on the static title screen.
+        if !matches!(self.phase, GamePhase::Title) {
+            self.background.update(dt);
+            self.wind.update(dt, ramp);
+        }
 
         match self.phase {
             GamePhase::Playing => {
@@ -210,7 +212,11 @@ impl GameState {
                     *self = GameState::new();
                 }
             }
-            GamePhase::Title => {}
+            GamePhase::Title => {
+                if is_key_pressed(KeyCode::Space) {
+                    self.restart();
+                }
+            }
             GamePhase::EnteringName { .. } => {}
         }
     }
@@ -221,20 +227,77 @@ impl GameState {
         let palette = theme.palette();
         let wind_force = self.wind.current_force(self.difficulty_ramp()) * self.cheats.wind_multiplier;
 
-        // Background + wind first, then canyon + rocks + plane on top.
         self.background.draw(palette);
         self.wind.draw(palette);
         self.world.draw(palette, theme);
         for rock in &self.rocks { rock.draw(palette); }
-        self.player.draw();
-        hud::draw(&self.player, self.score(), wind_force, theme);
 
-        if let GamePhase::Dead { score } = self.phase {
-            // Dim overlay so the GAME OVER message reads cleanly over any palette.
-            draw_rectangle(0.0, 0.0, screen_width(), screen_height(),
-                           Color::new(0.0, 0.0, 0.0, 0.5));
-            let msg = format!("GAME OVER   Score: {}   [Space] to restart", score);
-            draw_text(&msg, 50.0, screen_height() / 2.0, 28.0, WHITE);
+        match &self.phase {
+            GamePhase::Title => {
+                self.draw_title();
+            }
+            GamePhase::Playing => {
+                self.player.draw();
+                hud::draw(&self.player, self.score(), wind_force, theme);
+            }
+            GamePhase::Dead { score } => {
+                self.player.draw();
+                hud::draw(&self.player, self.score(), wind_force, theme);
+                draw_rectangle(0.0, 0.0, screen_width(), screen_height(),
+                               Color::new(0.0, 0.0, 0.0, 0.5));
+                let msg = format!("GAME OVER   Score: {:06}   [Space] to continue", score);
+                draw_text(&msg, 50.0, screen_height() / 2.0, 28.0, WHITE);
+            }
+            GamePhase::EnteringName { score, buf } => {
+                self.player.draw();
+                hud::draw(&self.player, self.score(), wind_force, theme);
+                draw_rectangle(0.0, 0.0, screen_width(), screen_height(),
+                               Color::new(0.0, 0.0, 0.0, 0.5));
+                let cy = screen_height() / 2.0;
+                draw_text(&format!("GAME OVER   Score: {:06}", score),
+                          50.0, cy - 40.0, 28.0, WHITE);
+                draw_text("New high score!  Enter your name (max 8 chars):",
+                          50.0, cy, 22.0, YELLOW);
+                draw_text(&format!("> {}_", buf),
+                          50.0, cy + 30.0, 22.0, WHITE);
+                draw_text("Press Enter to save  \u{00B7}  Esc to skip",
+                          50.0, cy + 60.0, 18.0, GRAY);
+            }
+        }
+    }
+
+    fn draw_title(&self) {
+        let sw = screen_width();
+        let sh = screen_height();
+
+        let title = "CANYON RAIDER";
+        let tdim = measure_text(title, None, 48, 1.0);
+        draw_text(title, (sw - tdim.width) / 2.0, sh * 0.35, 48.0, WHITE);
+
+        let prompt = "Press Space to Play";
+        let pdim = measure_text(prompt, None, 22, 1.0);
+        draw_text(prompt, (sw - pdim.width) / 2.0, sh * 0.35 + tdim.height + 12.0, 22.0, LIGHTGRAY);
+
+        let header = "HIGH SCORES";
+        let hdim = measure_text(header, None, 18, 1.0);
+        let board_top = sh * 0.60;
+        draw_text(header, (sw - hdim.width) / 2.0, board_top, 18.0, YELLOW);
+
+        let entries = self.scores.entries();
+        for rank in 0..5 {
+            let (name, score) = entries
+                .get(rank)
+                .map(|e| (e.name.as_str(), e.score))
+                .unwrap_or(("---", 0));
+            let line = format!("{}. {:<8} {:>06}", rank + 1, name, score);
+            let ldim = measure_text(&line, None, 18, 1.0);
+            draw_text(
+                &line,
+                (sw - ldim.width) / 2.0,
+                board_top + 24.0 + (rank as f32) * 24.0,
+                18.0,
+                WHITE,
+            );
         }
     }
 }
