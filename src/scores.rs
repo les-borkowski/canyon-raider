@@ -1,8 +1,10 @@
+#[derive(Debug)]
 pub struct Entry {
     pub name: String,
     pub score: u32,
 }
 
+#[derive(Debug)]
 pub struct Scores {
     entries: Vec<Entry>,
 }
@@ -21,7 +23,7 @@ impl Scores {
     }
 
     fn parse(s: &str) -> Self {
-        let entries = s
+        let mut entries: Vec<Entry> = s
             .lines()
             .filter_map(|line| {
                 let mut parts = line.splitn(2, '|');
@@ -30,12 +32,13 @@ impl Scores {
                 Some(Entry { name, score })
             })
             .collect();
+        entries.sort_by(|a, b| b.score.cmp(&a.score));
         Self { entries }
     }
 
     pub fn is_high_score(&self, score: u32) -> bool {
         self.entries.len() < 5
-            || score > self.entries.last().map_or(0, |e| e.score)
+            || score > self.entries.last().map_or(0, |e| e.score) // ties do not qualify
     }
 
     pub fn insert(&mut self, name: String, score: u32) {
