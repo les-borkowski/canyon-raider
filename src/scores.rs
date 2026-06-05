@@ -34,6 +34,12 @@ impl Scores {
     }
 }
 
+impl Default for Scores {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
