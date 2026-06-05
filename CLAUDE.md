@@ -45,3 +45,26 @@ cargo run      # launch game
 cargo test     # run unit tests (obstacles::tests)
 cargo clippy   # lint
 ```
+
+## Deployment (WebAssembly on GitHub Pages)
+
+**Prerequisites:** Install the wasm32 target: `rustup target add wasm32-unknown-unknown`
+
+**Build for web:**
+```bash
+./build-wasm.sh    # Compiles to wasm and copies binary to docs/
+```
+
+**Test locally:**
+```bash
+python3 -m http.server -d docs 8000
+# Open http://localhost:8000 in your browser
+```
+
+**Deploy to GitHub Pages:**
+1. Push with wasm binary: `git add docs/ && git commit -m "build: wasm deployment"`
+2. Go to repo settings → Pages → Source: "Deploy from a branch"
+3. Branch: `main`, Folder: `/docs`
+4. Game will be live at: `https://les-borkowski.github.io/canyon-raider/`
+
+Rebuild and redeploy anytime: just run `./build-wasm.sh` and push again.
