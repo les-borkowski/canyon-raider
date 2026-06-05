@@ -36,7 +36,7 @@ impl Scores {
                 Some(Entry { name, score })
             })
             .collect();
-        entries.sort_by(|a, b| b.score.cmp(&a.score));
+        entries.sort_by_key(|e| std::cmp::Reverse(e.score));
         Self { entries }
     }
 
@@ -47,7 +47,7 @@ impl Scores {
 
     pub fn insert(&mut self, name: String, score: u32) {
         self.entries.push(Entry { name, score });
-        self.entries.sort_by(|a, b| b.score.cmp(&a.score));
+        self.entries.sort_by_key(|e| std::cmp::Reverse(e.score));
         self.entries.truncate(5);
     }
 
