@@ -30,10 +30,15 @@ use palette::TimeOfDay;
 mod cheats;
 use cheats::Cheats;
 
-#[derive(Clone, Copy)]
+mod scores;
+use scores::Scores;
+
+#[derive(Clone)]
 pub enum GamePhase {
+    Title,
     Playing,
     Dead { score: u32 },
+    EnteringName { score: u32, buf: String },
 }
 
 /// GameState holds all mutable game data.
@@ -47,6 +52,7 @@ pub struct GameState {
     pub background: Background,
     pub wind: Wind,
     pub cheats: Cheats,
+    pub scores: Scores,
 }
 
 impl GameState {
@@ -56,12 +62,26 @@ impl GameState {
             world: World::new(),
             rocks: Vec::new(),
             rock_timer: ROCK_INTERVAL_START,
-            phase: GamePhase::Playing,
+            phase: GamePhase::Title,
             total_distance: 0.0,
             background: Background::new(),
             wind: Wind::new(),
             cheats: Cheats::new(),
+            scores: Scores::load(),
         }
+    }
+
+    fn restart(&mut self) {
+        self.player = Player::new(screen_width() / 2.0, screen_height() * 0.75);
+        self.world = World::new();
+        self.rocks = Vec::new();
+        self.rock_timer = ROCK_INTERVAL_START;
+        self.total_distance = 0.0;
+        self.background = Background::new();
+        self.wind = Wind::new();
+        self.cheats = Cheats::new();
+        self.phase = GamePhase::Playing;
+        // self.scores intentionally preserved
     }
 
     /// Active theme: cheat override if set, otherwise auto-cycle from distance.
@@ -71,10 +91,7 @@ impl GameState {
     }
 
     fn check_collisions(&mut self) {
-        let px = self.player.x - 10.0;
-        let py = self.player.y - 15.0;
-        let pw = 20.0_f32;
-        let ph = 25.0_f32;
+        let (px, py, pw, ph) = self.player.hitbox_rect();
         let sw = screen_width();
         let scroll = self.world.scroll_offset;
 
@@ -104,18 +121,21 @@ impl GameState {
         if hit { self.die(); }
     }
 
-    fn die(&mut self) {
-        let score = (self.total_distance / 10.0) as u32;
-        self.phase = GamePhase::Dead { score };
+    fn score(&self) -> u32 {
+        (self.total_distance / 10.0) as u32
     }
 
-    fn canyon_width(&self) -> f32 {
-        let t = (self.total_distance / DIFFICULTY_DISTANCE).clamp(0.0, 1.0);
-        CANYON_WIDTH_START + t * (CANYON_WIDTH_MIN - CANYON_WIDTH_START)
+    fn die(&mut self) {
+        self.phase = GamePhase::Dead { score: self.score() };
     }
 
     fn difficulty_ramp(&self) -> f32 {
         (self.total_distance / DIFFICULTY_DISTANCE).clamp(0.0, 1.0)
+    }
+
+    fn canyon_width(&self) -> f32 {
+        let t = self.difficulty_ramp();
+        CANYON_WIDTH_START + t * (CANYON_WIDTH_MIN - CANYON_WIDTH_START)
     }
 
     fn rock_interval(&self) -> f32 {
@@ -124,8 +144,7 @@ impl GameState {
     }
 
     fn check_fuel_pickups(&mut self) {
-        let px = self.player.x - 10.0;
-        let py = self.player.y - 15.0;
+        let (px, py, pw, ph) = self.player.hitbox_rect();
         let scroll = self.world.scroll_offset;
         let mut refueled = false;
 
@@ -133,7 +152,7 @@ impl GameState {
             let sy = i as f32 * SLICE_HEIGHT + scroll - SLICE_HEIGHT;
             if let Some(ref mut depot) = slice.fuel_depot {
                 if !depot.collected
-                    && obstacles::rects_overlap(px, py, 20.0, 25.0, depot.x, sy + 5.0, 15.0, 10.0)
+                    && obstacles::rects_overlap(px, py, pw, ph, depot.x, sy + 5.0, 15.0, 10.0)
                 {
                     depot.collected = true;
                     refueled = true;
@@ -162,10 +181,10 @@ impl GameState {
                 self.player.x = self.player.x.clamp(10.0, screen_width() - 10.0);
 
                 self.world.update(self.canyon_width());
-                self.total_distance += SCROLL_SPEED * get_frame_time();
+                self.total_distance += SCROLL_SPEED * dt;
 
                 if !self.cheats.unlimited_fuel {
-                    self.player.fuel = (self.player.fuel - FUEL_DRAIN * get_frame_time()).max(0.0);
+                    self.player.fuel = (self.player.fuel - FUEL_DRAIN * dt).max(0.0);
                     if self.player.fuel <= 0.0 {
                         self.die();
                         return;
@@ -174,7 +193,7 @@ impl GameState {
 
                 self.check_fuel_pickups();
 
-                let scroll_px = SCROLL_SPEED * get_frame_time();
+                let scroll_px = SCROLL_SPEED * dt;
                 obstacles::update_rocks(&mut self.rocks, scroll_px);
 
                 let (lw, rw) = {
@@ -191,6 +210,8 @@ impl GameState {
                     *self = GameState::new();
                 }
             }
+            GamePhase::Title => {}
+            GamePhase::EnteringName { .. } => {}
         }
     }
 
@@ -206,7 +227,7 @@ impl GameState {
         self.world.draw(palette, theme);
         for rock in &self.rocks { rock.draw(palette); }
         self.player.draw();
-        hud::draw(&self.player, self.total_distance, wind_force, theme);
+        hud::draw(&self.player, self.score(), wind_force, theme);
 
         if let GamePhase::Dead { score } = self.phase {
             // Dim overlay so the GAME OVER message reads cleanly over any palette.
