@@ -105,6 +105,11 @@ impl Player {
         draw_rectangle(cx - 1.0, fy_top + cy - 8.0,  2.0, 4.0, black);
     }
 
+    /// Returns the AABB hitbox as (x, y, width, height), centred on the sprite.
+    pub fn hitbox_rect(&self) -> (f32, f32, f32, f32) {
+        (self.x - 10.0, self.y - 15.0, 20.0, 25.0)
+    }
+
     /// Update the player's position based on keyboard input.
     pub fn update(&mut self) {
         let dt = get_frame_time();

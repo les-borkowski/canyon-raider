@@ -36,6 +36,7 @@ impl Cheats {
     }
 
     /// Collect typed characters and check for cheat codes. Call once per frame.
+    /// Intentionally runs even during game-over so codes take effect on restart.
     pub fn update(&mut self) {
         while let Some(c) = get_char_pressed() {
             if c.is_ascii() && !c.is_control() {

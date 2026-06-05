@@ -90,7 +90,9 @@ impl Wind {
         let sh = self.screen_h;
         for p in &mut self.particles {
             p.pos.x += force * WIND_PARTICLE_SCALE * dt;
-            p.pos.y += SCROLL_SPEED * dt;
+            // Particles scroll at half world speed so they read as airborne
+            // rather than glued to the ground (same rate as the water bands).
+            p.pos.y += SCROLL_SPEED * 0.5 * dt;
 
             if p.pos.y > sh {
                 p.pos.y = 0.0;

@@ -12,9 +12,9 @@ use crate::palette::{TimeOfDay, with_alpha};
 /// Draw the full minimal HUD. The fuel bar colour-codes by remaining fuel
 /// (yellow > 50%, orange > 25%, red below) so the player gets a quick
 /// peripheral signal as it depletes.
-pub fn draw(player: &Player, total_distance: f32, wind_force: f32, time: TimeOfDay) {
+pub fn draw(player: &Player, score: u32, wind_force: f32, time: TimeOfDay) {
     draw_fuel_bar(player.fuel);
-    draw_score(total_distance);
+    draw_score(score);
     draw_wind_indicator(wind_force);
     draw_theme_label(time);
 }
@@ -37,8 +37,7 @@ fn draw_fuel_bar(fuel: f32) {
     draw_text("FUEL", FUEL_X + FUEL_W + 6.0, FUEL_Y + 8.0, 14.0, WHITE);
 }
 
-fn draw_score(total_distance: f32) {
-    let score = (total_distance / 10.0) as u32;
+fn draw_score(score: u32) {
     let text = format!("{:06}", score);
     draw_text(&text, screen_width() - 86.0, 20.0, 18.0, WHITE);
 }
