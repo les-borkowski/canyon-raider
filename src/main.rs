@@ -169,7 +169,11 @@ impl GameState {
     }
 
     fn update(&mut self) {
-        self.cheats.update();
+        // Skip cheat input during name entry — both use get_char_pressed() and
+        // the queue is consumed on first read, so cheats must not run first.
+        if !matches!(self.phase, GamePhase::EnteringName { .. }) {
+            self.cheats.update();
+        }
 
         let dt = get_frame_time();
         let ramp = self.difficulty_ramp();
