@@ -222,7 +222,34 @@ impl GameState {
                     self.restart();
                 }
             }
-            GamePhase::EnteringName { .. } => {}
+            GamePhase::EnteringName { ref mut buf, .. } => {
+                while let Some(c) = get_char_pressed() {
+                    if c.is_ascii() && !c.is_control() && c != '|' && buf.len() < 8 {
+                        buf.push(c);
+                    }
+                }
+                if is_key_pressed(KeyCode::Backspace) {
+                    buf.pop();
+                }
+            }
+        }
+
+        // EnteringName commit/cancel — outside the match to avoid borrowing self.phase
+        // and self.scores simultaneously.
+        let commit = matches!(self.phase, GamePhase::EnteringName { .. })
+            && is_key_pressed(KeyCode::Enter);
+        let cancel = matches!(self.phase, GamePhase::EnteringName { .. })
+            && is_key_pressed(KeyCode::Escape);
+
+        if commit || cancel {
+            if let GamePhase::EnteringName { score, ref buf } = self.phase {
+                if commit && !buf.is_empty() {
+                    let name = buf.clone();
+                    self.scores.insert(name, score);
+                    self.scores.save();
+                }
+            }
+            self.phase = GamePhase::Title;
         }
     }
 
