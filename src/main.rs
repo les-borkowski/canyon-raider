@@ -339,7 +339,9 @@ async fn main() {
     let mut state = GameState::new();
 
     loop {
-        if is_key_pressed(KeyCode::Escape) { break; }
+        if is_key_pressed(KeyCode::Escape) && !matches!(state.phase, GamePhase::EnteringName { .. }) {
+            break;
+        }
         state.update();
         state.draw();
         next_frame().await;
