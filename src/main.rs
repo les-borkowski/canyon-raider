@@ -126,7 +126,12 @@ impl GameState {
     }
 
     fn die(&mut self) {
-        self.phase = GamePhase::Dead { score: self.score() };
+        let score = self.score();
+        if self.scores.is_high_score(score) {
+            self.phase = GamePhase::EnteringName { score, buf: String::new() };
+        } else {
+            self.phase = GamePhase::Dead { score };
+        }
     }
 
     fn difficulty_ramp(&self) -> f32 {
@@ -209,7 +214,7 @@ impl GameState {
             }
             GamePhase::Dead { .. } => {
                 if is_key_pressed(KeyCode::Space) {
-                    *self = GameState::new();
+                    self.phase = GamePhase::Title;
                 }
             }
             GamePhase::Title => {
