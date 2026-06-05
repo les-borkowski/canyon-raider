@@ -1,3 +1,7 @@
+use quad_storage::STORAGE;
+
+const STORAGE_KEY: &str = "crscores";
+
 #[derive(Debug)]
 pub struct Entry {
     pub name: String,
@@ -49,6 +53,18 @@ impl Scores {
 
     pub fn entries(&self) -> &[Entry] {
         &self.entries
+    }
+
+    pub fn load() -> Self {
+        let raw = STORAGE.lock().unwrap().get(STORAGE_KEY);
+        match raw {
+            Some(s) if !s.is_empty() => Self::parse(&s),
+            _ => Self::new(),
+        }
+    }
+
+    pub fn save(&self) {
+        STORAGE.lock().unwrap().set(STORAGE_KEY, &self.serialize());
     }
 }
 
