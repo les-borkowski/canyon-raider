@@ -5,40 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Canyon Raider</title>
     <style>
-        * {
+        body {
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #1a1a1a;
-            font-family: system-ui, -apple-system, sans-serif;
             overflow: hidden;
+            background: #000;
         }
         canvas {
             display: block;
+            width: 100vw;
+            height: 100vh;
         }
     </style>
 </head>
 <body>
-    <canvas id="canvas"></canvas>
-    <script src="https://not-fl3.github.io/miniquad_wasm/gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quickjs-emscripten@0.23.0/dist/quickjs.mjs"></script>
+    <script async src="https://not-fl3.github.io/macroquad_wasm/gl.js"></script>
     <script>
-        load("canyon_raider.wasm").catch(err => {
-            console.error("Failed to load game:", err);
-            document.body.innerHTML = `
-                <div style="color: #fff; text-align: center; padding: 20px; width: 100vw; height: 100vh;">
-                    <h1>Failed to load Canyon Raider</h1>
-                    <p>${err.message}</p>
-                    <p style="margin-top: 20px; font-size: 12px;">Check console (F12) for details</p>
-                </div>
-            `;
-        });
+        window.WASM_URL = "canyon_raider.wasm";
     </script>
 </body>
 </html>
